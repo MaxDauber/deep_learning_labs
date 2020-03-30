@@ -17,6 +17,14 @@ def softmax(x):
 def LoadBatch(filename):
     """
         Load Batch for dataset
+
+        Args:
+            filename: relative filepath for dataset
+
+        Returns:
+            X: images
+            Y: one-hot labels
+            y: labels
     """
     with open(filename, 'rb') as f:
         dataDict = pickle.load(f, encoding='bytes')
@@ -29,28 +37,59 @@ def LoadBatch(filename):
 
 def EvaluateClassifier(X, W, b):
     """
-        output probabilities of the classifier
+        Output stable softmax probabilities of the classifier
+
+        Args:
+            X: data matrix
+            W: weights
+            b: bias
+
+        Returns:
+            Softmax matrix of output probabilities
     """
     return softmax(np.matmul(W, X) + b)
 
 
 def ComputeAccuracy(X, y, W, b):
     """
-       Computes the accuracy of the network’s predictions
+       Load Batch for dataset
+
+        Args:
+            filename: relative filepath for dataset
+
+        Returns:
+            X: images
+            Y: one-hot labels
+            y: labels
     """
     acc = 0
     return acc
 
 def ComputeCost(X, Y, W, b, lamda):
     """
-        Computes the cost function for the set of images using cross entropy loss
+        Computes the cost function for the set of images using cross-entropy loss
+
+        Args:
+            X: data matrix
+            Y: one-hot encoding labels matrix
+            lamda: regularization term
+
+        Returns:
+            cost (float): the cross-entropy loss
     """
+    # dimensions of data
     d = np.shape(X)[0]
     N = np.shape(X)[1]
 
-    regularization = lamda * np.sum(np.power(W, 2))
+    # L2 regularization term
+    regularization_term = lamda * np.sum(np.power(W, 2))
 
+    # cross-entropy loss term
+    loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), EvaluateClassifier(X, W, b)), axis=0), axis=0))
+
+    # Cost Function Calculation
     J = (1/N) * np.sum(loss_term) + regularization_term
+
     return J
 
 def ComputeGradsNum(X, Y, P, W, b, lamda, h):
@@ -166,3 +205,5 @@ if __name__ == '__main__':
 
     # W = weights K x d
     W = np.random.normal(0, 0.01, (K, d))
+
+    
