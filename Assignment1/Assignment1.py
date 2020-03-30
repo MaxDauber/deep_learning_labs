@@ -1,17 +1,29 @@
-import numpy as np
-import scipy
+import pickle
+import statistics
+import unittest
+
 import matplotlib
+import numpy as np
+# import scipy
+
 
 def softmax(x):
     """ Standard definition of the softmax function """
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 def LoadBatch(filename):
-    """ Copied from the dataset website """
-    import pickle
-    with open('Dataset/'+ filename, 'rb') as fo:
-        dict = pickle.load(fo, encoding='bytes')
-    return dict
+    """ Load Batch into """
+    with open(filename, 'rb') as f:
+        dataDict = pickle.load(f, encoding='bytes')
+
+        X = (dataDict[b"data"] / 255).T
+        y = dataDict[b"labels"]
+        Y = (np.eye(10)[y]).T
+
+    return X, Y, y
+
+def ComputeCost(X, Y, W, b, lamda):
+    return lamda
 
 def ComputeGradsNum(X, Y, P, W, b, lamda, h):
     """ Converted from matlab code """
@@ -73,8 +85,7 @@ def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
 
 def montage(W):
     """ Display the image for each label in W """
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(2,5)
+    fig, ax = matplotlib.plots.subplots(2,5)
     for i in range(2):
         for j in range(5):
             im  = W[i+j,:].reshape(32,32,3, order='F')
@@ -83,9 +94,16 @@ def montage(W):
             ax[i][j].imshow(sim, interpolation='nearest')
             ax[i][j].set_title("y="+str(5*i+j))
             ax[i][j].axis('off')
-    plt.show()
+    matplotlib.plots.show()
 
-def save_as_mat(data, name="model"):
-    """ Used to transfer a python model to matlab """
-    import scipy.io as sio
-    sio.savemat(name'.mat',{name:b})
+# def save_as_mat(data, name="model"):
+#     """ Used to transfer a python model to matlab """
+#     import scipy.io as sio
+#     sio.savemat(name'.mat', {name: b})
+
+
+if __name__ == '__main__':
+        X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
+        print(X_train)
+        print(Y_train)
+        print(y_train)
