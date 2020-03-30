@@ -1,6 +1,7 @@
 import pickle
 import statistics
 import unittest
+import random
 
 import matplotlib
 import numpy as np
@@ -8,11 +9,15 @@ import numpy as np
 
 
 def softmax(x):
-    """ Standard definition of the softmax function """
+    """
+        Standard definition of the softmax function
+    """
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
 def LoadBatch(filename):
-    """ Load Batch into """
+    """
+        Load Batch for dataset
+    """
     with open(filename, 'rb') as f:
         dataDict = pickle.load(f, encoding='bytes')
 
@@ -22,8 +27,31 @@ def LoadBatch(filename):
 
     return X, Y, y
 
+def EvaluateClassifier(X, W, b):
+    """
+        output probabilities of the classifier
+    """
+    return softmax(np.matmul(W, X) + b)
+
+
+def ComputeAccuracy(X, y, W, b):
+    """
+       Computes the accuracy of the network’s predictions
+    """
+    acc = 0
+    return acc
+
 def ComputeCost(X, Y, W, b, lamda):
-    return lamda
+    """
+        Computes the cost function for the set of images using cross entropy loss
+    """
+    d = np.shape(X)[0]
+    N = np.shape(X)[1]
+
+    regularization = lamda * np.sum(np.power(W, 2))
+
+    J = (1/N) * np.sum(loss_term) + regularization_term
+    return J
 
 def ComputeGradsNum(X, Y, P, W, b, lamda, h):
     """ Converted from matlab code """
@@ -103,9 +131,38 @@ def montage(W):
 
 
 if __name__ == '__main__':
-        X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
-        X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
-        X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
-        print(X_train)
-        print(X_validation)
-        print(X_test)
+
+    # N = num of input examples
+    # d = dimension of each input example
+    # X = images (d x N)
+    # Y = one-hot labels (K x N)
+    # y = labels (N)
+    X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
+    X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
+    X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
+
+    # Hyperparameters -> change for each version of training
+
+    # lamda = regularization parameter
+    lamda = 0
+    # eta = learning rate
+    eta = 0.1
+    n_epochs = 40
+
+
+
+    # K =num of labels
+    K = 10
+
+    # dim of each image
+    d = np.shape(X_train)[0]
+
+    # num of images
+    N = np.shape(X_train)[1]
+
+    # b = bias K x 1
+    b = np.random.normal(0, 0.01, (K, 1))
+    print(b)
+
+    # W = weights K x d
+    W = np.random.normal(0, 0.01, (K, d))
