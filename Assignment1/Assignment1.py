@@ -104,6 +104,8 @@ def montage(W):
 
 if __name__ == '__main__':
         X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
+        X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
+        X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
         print(X_train)
-        print(Y_train)
-        print(y_train)
+        print(X_validation)
+        print(X_test)
