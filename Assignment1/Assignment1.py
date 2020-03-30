@@ -52,17 +52,31 @@ def EvaluateClassifier(X, W, b):
 
 def ComputeAccuracy(X, y, W, b):
     """
-       Load Batch for dataset
+       Compute accuracy of network's predictions
 
         Args:
-            filename: relative filepath for dataset
+            X: data matrix
+            y: ground truth labels
+            W: weights
+            b: bias
 
         Returns:
-            X: images
-            Y: one-hot labels
-            y: labels
+            acc (float): Accuracy of
     """
-    acc = 0
+
+    # calculate predictions
+    preds = np.argmax(EvaluateClassifier(X, W, b), axis=0)
+
+    # calculate num of correct predictions
+    num_correct = np.count_nonzero((y - preds) == 0)
+
+    all = np.size(preds)
+
+    if all != 0:
+        acc = num_correct / all
+    else:
+        raise (ZeroDivisionError("Zero Division Error!"))
+
     return acc
 
 def ComputeCost(X, Y, W, b, lamda):
@@ -206,4 +220,3 @@ if __name__ == '__main__':
     # W = weights K x d
     W = np.random.normal(0, 0.01, (K, d))
 
-    
