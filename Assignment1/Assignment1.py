@@ -1,18 +1,20 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# author: Max Dauber  dauber@kth.se
+"""
+This is the main file of Assignment 1 for DD2424 Deep Learning
+This assignment implements a one-layer neural network.
+"""
+
+
 import pickle
 import statistics
 import unittest
 import random
-
-import matplotlib
+# import matplotlib
 import numpy as np
 # import scipy
-
-
-def softmax(x):
-    """
-        Standard definition of the softmax function
-    """
-    return np.exp(x) / np.sum(np.exp(x), axis=0)
+from olnn import OLNN
 
 def LoadBatch(filename):
     """
@@ -35,135 +37,6 @@ def LoadBatch(filename):
 
     return X, Y, y
 
-def EvaluateClassifier(X, W, b):
-    """
-        Output stable softmax probabilities of the classifier
-
-        Args:
-            X: data matrix
-            W: weights
-            b: bias
-
-        Returns:
-            Softmax matrix of output probabilities
-    """
-    return softmax(np.matmul(W, X) + b)
-
-
-def ComputeAccuracy(X, y, W, b):
-    """
-       Compute accuracy of network's predictions
-
-        Args:
-            X: data matrix
-            y: ground truth labels
-            W: weights
-            b: bias
-
-        Returns:
-            acc (float): Accuracy of
-    """
-
-    # calculate predictions
-    preds = np.argmax(EvaluateClassifier(X, W, b), axis=0)
-
-    # calculate num of correct predictions
-    num_correct = np.count_nonzero((y - preds) == 0)
-
-    all = np.size(preds)
-
-    if all != 0:
-        acc = num_correct / all
-    else:
-        raise (ZeroDivisionError("Zero Division Error!"))
-
-    return acc
-
-def ComputeCost(X, Y, W, b, lamda):
-    """
-        Computes the cost function for the set of images using cross-entropy loss
-
-        Args:
-            X: data matrix
-            Y: one-hot encoding labels matrix
-            lamda: regularization term
-
-        Returns:
-            cost (float): the cross-entropy loss
-    """
-    # dimensions of data
-    d = np.shape(X)[0]
-    N = np.shape(X)[1]
-
-    # L2 regularization term
-    regularization_term = lamda * np.sum(np.power(W, 2))
-
-    # cross-entropy loss term
-    loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), EvaluateClassifier(X, W, b)), axis=0), axis=0))
-
-    # Cost Function Calculation
-    J = (1/N) * np.sum(loss_term) + regularization_term
-
-    return J
-
-def ComputeGradsNum(X, Y, P, W, b, lamda, h):
-    """ Converted from matlab code """
-    no 	= 	W.shape[0]
-    d 	= 	X.shape[0]
-
-    grad_W = np.zeros(W.shape);
-    grad_b = np.zeros((no, 1));
-
-    c = ComputeCost(X, Y, W, b, lamda);
-
-    for i in range(len(b)):
-        b_try = np.array(b)
-        b_try[i] += h
-        c2 = ComputeCost(X, Y, W, b_try, lamda)
-        grad_b[i] = (c2-c) / h
-
-    for i in range(W.shape[0]):
-        for j in range(W.shape[1]):
-            W_try = np.array(W)
-            W_try[i,j] += h
-            c2 = ComputeCost(X, Y, W_try, b, lamda)
-            grad_W[i,j] = (c2-c) / h
-
-    return [grad_W, grad_b]
-
-def ComputeGradsNumSlow(X, Y, P, W, b, lamda, h):
-    """ Converted from matlab code """
-    no 	= 	W.shape[0]
-    d 	= 	X.shape[0]
-
-    grad_W = np.zeros(W.shape);
-    grad_b = np.zeros((no, 1));
-
-    for i in range(len(b)):
-        b_try = np.array(b)
-        b_try[i] -= h
-        c1 = ComputeCost(X, Y, W, b_try, lamda)
-
-        b_try = np.array(b)
-        b_try[i] += h
-        c2 = ComputeCost(X, Y, W, b_try, lamda)
-
-        grad_b[i] = (c2-c1) / (2*h)
-
-    for i in range(W.shape[0]):
-        for j in range(W.shape[1]):
-            W_try = np.array(W)
-            W_try[i,j] -= h
-            c1 = ComputeCost(X, Y, W_try, b, lamda)
-
-            W_try = np.array(W)
-            W_try[i,j] += h
-            c2 = ComputeCost(X, Y, W_try, b, lamda)
-
-            grad_W[i,j] = (c2-c1) / (2*h)
-
-    return [grad_W, grad_b]
-
 def montage(W):
     """ Display the image for each label in W """
     fig, ax = matplotlib.plots.subplots(2,5)
@@ -177,13 +50,10 @@ def montage(W):
             ax[i][j].axis('off')
     matplotlib.plots.show()
 
-# def save_as_mat(data, name="model"):
-#     """ Used to transfer a python model to matlab """
-#     import scipy.io as sio
-#     sio.savemat(name'.mat', {name: b})
 
 
 if __name__ == '__main__':
+    cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
     # N = num of input examples
     # d = dimension of each input example
@@ -194,29 +64,24 @@ if __name__ == '__main__':
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
 
-    # Hyperparameters -> change for each version of training
-
-    # lamda = regularization parameter
-    lamda = 0
-    # eta = learning rate
-    eta = 0.1
-    n_epochs = 40
+    neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
+    # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
+    neural_net.
 
 
 
-    # K =num of labels
-    K = 10
+    # meanx = np.mean(X_train, axis=0)
+    # stdx = np.std(X_train, axis=0)
+    #
+    # X_train -= meanx
+    # X_train /= stdx
+    # X_validation -= meanx
+    # X_validation /= stdx
+    # X_test -= meanx
+    # X_test /= stdx
 
-    # dim of each image
-    d = np.shape(X_train)[0]
 
-    # num of images
-    N = np.shape(X_train)[1]
-
-    # b = bias K x 1
-    b = np.random.normal(0, 0.01, (K, 1))
-    print(b)
-
-    # W = weights K x d
-    W = np.random.normal(0, 0.01, (K, d))
-
+    # grad_W_test_analytical, grad_b_test_analytical = ComputeGradients(X_train, Y_train, P, W, lamda)
+    grad_W_test_num, grad_b_test_num = ComputeGradsNumSlow(X_train, Y_train, P, W, b, lamda, .000001)
+    print(grad_b_test_num)
+    print(grad_W_test_num)
