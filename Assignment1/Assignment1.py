@@ -54,6 +54,7 @@ def montage(W):
 
 if __name__ == '__main__':
     cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+    np.random.seed(7)
 
     # N = num of input examples
     # d = dimension of each input example
@@ -66,7 +67,7 @@ if __name__ == '__main__':
 
     neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
     # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
-    neural_net.
+    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
 
 
@@ -79,9 +80,3 @@ if __name__ == '__main__':
     # X_validation /= stdx
     # X_test -= meanx
     # X_test /= stdx
-
-
-    # grad_W_test_analytical, grad_b_test_analytical = ComputeGradients(X_train, Y_train, P, W, lamda)
-    grad_W_test_num, grad_b_test_num = ComputeGradsNumSlow(X_train, Y_train, P, W, b, lamda, .000001)
-    print(grad_b_test_num)
-    print(grad_W_test_num)

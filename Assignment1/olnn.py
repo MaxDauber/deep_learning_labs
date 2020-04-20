@@ -139,22 +139,24 @@ class OLNN:
         return J
 
     def ComputeGradients(self, X, Y, P, W, lamda):
-        """ Computes the gradients of the weight and bias parameters
-                Args:
-                    X: data batch matrix
-                    Y: one-hot-encoding labels batch vector
-                    P: evaluated classifier for the batch
-                    W: weights
-                    lamda: regularization term
+        """
+            Computes the gradients of the weight and bias parameters
 
-                Returns:
-                    grad_W: gradient of the weight parameter
-                    grad_b: gradient of the bias parameter
+            Args:
+                X: data batch matrix
+                Y: one-hot-encoding labels batch vector
+                P: evaluated classifier for the batch
+                W: weights
+                lamda: regularization term
 
-                """
+            Returns:
+                grad_W: gradient of the weight parameter
+                grad_b: gradient of the bias parameter
+
+        """
 
         grad_W = np.zeros(np.shape(W))
-        grad_b = np.zeros(np.shape(b))
+        grad_b = np.zeros(np.shape(self.b))
 
         N = np.shape(X)[1]
         for i in range(N):
@@ -223,3 +225,72 @@ class OLNN:
 
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
+
+    def CheckGradients(self, X, Y, method="fast"):
+        """
+            Checks analytically computed gradients against numerically computed to compute error
+
+            Args:
+                X: data batch matrix
+                Y: one-hot-encoding labels batch vector
+                method: type of numerical gradient computation
+
+            Returns:
+                None
+        """
+        P = self.EvaluateClassifier(X, self.W, self.b)
+
+        if method == 'fast':
+            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
+        elif method == 'slow':
+            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
+
+        grad_b, grad_w = self.ComputeGradients(X, Y, P, self.W, self.lamda)
+
+
+        grad_w_vec = grad_w.flatten()
+        grad_w_num_vec = grad_w_num.flatten()
+        grad_b_vec = grad_b.flatten()
+        grad_b_num_vec = grad_b_num.flatten()
+        print("* W gradients *")
+        print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
+        print("* Bias gradients *")
+        print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
+
+    def MiniBatchGD(self, X, Y, GDparams, lamda, verbose=True):
+        """
+            Trains OLNN using mini-batch gradient descent
+
+            Args:
+                X: data matrix
+                Y: one-hot-encoding labels matrix
+                GDparams: hyperparameter object
+                    n_batch : number of batches
+                    eta : learning rate
+                    n_epochs : number of training epochs
+                lamda: regularization term
+                verbose :
+        Returns:
+            acc_train (float): the accuracy on the training set
+            acc_val   (float): the accuracy on the validation set
+            acc_test  (float): the accuracy on the testing set
+        """
+        self.cost_hist_tr = []
+        self.cost_hist_val = []
+        self.acc_hist_tr = []
+        self.acc_hist_val = []
+        num_batches = int(self.n / self.batch_size)
+        for i in range(self.epochs):
+            for j in range(num_batches):
+                j_start = j * self.batch_size
+                j_end = j * self.batch_size + self.batch_size
+                X_batch = X_train[:, j_start:j_end]
+                Y_batch = Y_train[:, j_start:j_end]
+                Y_pred = self.evaluate(X_batch)
+                grad_b, grad_w = self.compute_gradients(X_batch, Y_batch, Y_pred)
+                self.w = self.w - self.lr * grad_w
+                self.b = self.b - self.lr * grad_b
+            if verbosity:
+                self.report_perf(i, X_train, Y_train, X_val, Y_val)
+        self.plot_cost_and_acc()
+        self.show_w()
