@@ -265,7 +265,7 @@ class OLNN:
                 X: data matrix
                 Y: one-hot-encoding labels matrix
                 GDparams: hyperparameter object
-                    n_batch : number of batches
+                    n_batch : batch size
                     eta : learning rate
                     n_epochs : number of training epochs
                 lamda: regularization term
@@ -279,18 +279,22 @@ class OLNN:
         self.cost_hist_val = []
         self.acc_hist_tr = []
         self.acc_hist_val = []
-        num_batches = int(self.n / self.batch_size)
-        for i in range(self.epochs):
+
+        # rounded to avoid non-integer number of datapoints per step
+        num_batches = int(self.n / GDparams.n_batch)
+
+        for i in range(GDparams.n_epochs):
             for j in range(num_batches):
-                j_start = j * self.batch_size
-                j_end = j * self.batch_size + self.batch_size
+                j_start = j * GDparams.n_batch
+                j_end = j * GDparams.n_batch + GDparams.n_batch
                 X_batch = X_train[:, j_start:j_end]
                 Y_batch = Y_train[:, j_start:j_end]
                 Y_pred = self.evaluate(X_batch)
                 grad_b, grad_w = self.compute_gradients(X_batch, Y_batch, Y_pred)
                 self.w = self.w - self.lr * grad_w
                 self.b = self.b - self.lr * grad_b
-            if verbosity:
+
+            if verbose:
                 self.report_perf(i, X_train, Y_train, X_val, Y_val)
         self.plot_cost_and_acc()
         self.show_w()
