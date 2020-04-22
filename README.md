@@ -1,4 +1,4 @@
-# Projects for Deep Learning Masters Course at KTH (Spring 2020)
+## Projects for Deep Learning Masters Course at KTH (Spring 2020)
 #### Contact: dauber@kth.se
 
 #### Assignment 1
