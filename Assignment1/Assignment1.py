@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # author: Max Dauber  dauber@kth.se
-"""
-This is the main file of Assignment 1 for DD2424 Deep Learning
-This assignment implements a one-layer neural network.
-"""
-
 
 import pickle
 import statistics
 import unittest
 import random
-# import matplotlib
+import matplotlib
 import numpy as np
-# import scipy
-from olnn import OLNN
+import scipy
+from olnn import OLNN, GDparams
 
 def LoadBatch(filename):
     """
@@ -56,27 +51,14 @@ if __name__ == '__main__':
     cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
     np.random.seed(7)
 
-    # N = num of input examples
-    # d = dimension of each input example
-    # X = images (d x N)
-    # Y = one-hot labels (K x N)
-    # y = labels (N)
+
     X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
 
-    neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
-    # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
-    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    neural_net = OLNN(X_train[:2, :100], Y_train[:, :100], )
 
+    # neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
-
-    # meanx = np.mean(X_train, axis=0)
-    # stdx = np.std(X_train, axis=0)
-    #
-    # X_train -= meanx
-    # X_train /= stdx
-    # X_validation -= meanx
-    # X_validation /= stdx
-    # X_test -= meanx
-    # X_test /= stdx
+    params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
+    neural_net.MiniBatchGD(X_train, Y_train, X_validation, Y_validation, params)
