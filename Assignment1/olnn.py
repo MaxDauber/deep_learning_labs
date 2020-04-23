@@ -280,21 +280,57 @@ class OLNN:
         self.acc_hist_tr = []
         self.acc_hist_val = []
 
+        W = self.W
+        b = self.b
+
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
-        for i in range(GDparams.n_epochs):
-            for j in range(num_batches):
-                j_start = j * GDparams.n_batch
-                j_end = j * GDparams.n_batch + GDparams.n_batch
-                X_batch = X_train[:, j_start:j_end]
-                Y_batch = Y_train[:, j_start:j_end]
-                Y_pred = self.evaluate(X_batch)
-                grad_b, grad_w = self.compute_gradients(X_batch, Y_batch, Y_pred)
-                self.w = self.w - self.lr * grad_w
-                self.b = self.b - self.lr * grad_b
+        for epoch in range(GDparams.n_epochs):
+            for step in range(num_batches):
+                start_batch = step * GDparams.n_batch
+                end_batch = step * GDparams.n_batch + GDparams.n_batch
+                X_batch = X[:, start_batch:end_batch]
+                Y_batch = Y[:, start_batch:end_batch]
+                grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, lamda)
+                self.W = self.W - GDparams.eta * grad_w
+                self.b = self.b - GDparams.eta * grad_b
+            print(epoch)
+            # if verbose:
+                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val)
+        # self.plot_cost_and_acc()
+        # self.show_w()
 
-            if verbose:
-                self.report_perf(i, X_train, Y_train, X_val, Y_val)
-        self.plot_cost_and_acc()
-        self.show_w()
+    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val):
+        """
+        Compute and store the performance (cost and accuracy) of the model after every epoch,
+        so it can be used later to plot the evolution of the performance
+        """
+        Y_pred_train = self.EvaluateClassifier(X_train)
+        Y_pred_val = self.EvaluateClassifier(X_val)
+        cost_train = self.ComputeCost(X_train, Y_pred_train, self.lamda)
+        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train)
+        cost_val = self.ComputeCost(X_val, Y_pred_val, self.lamda)
+        acc_val = self.ComputeAccuracy(Y_pred_val, Y_val)
+        # self.cost_hist_tr.append(cost_train)
+        # self.acc_hist_tr.append(acc_train)
+        # self.cost_hist_val.append(cost_val)
+        # self.acc_hist_val.append(acc_val)
+        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
+              " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
+
+class GDparams:
+    """
+    Class containing hyperparameters for MiniBatchGD
+
+    """
+
+    def __init__(self, n_batch, eta, n_epochs):
+        # n_batch: Number of samples in each mini-batch.
+        self.n_batch = n_batch
+
+        # eta: Learning rate
+        self.eta = eta
+
+        # n_epochs: Maximum number of learning epochs.
+        self.n_epochs = n_epochs

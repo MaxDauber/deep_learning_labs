@@ -14,7 +14,7 @@ import random
 # import matplotlib
 import numpy as np
 # import scipy
-from olnn import OLNN
+from olnn import OLNN, GDparams
 
 def LoadBatch(filename):
     """
@@ -68,6 +68,8 @@ if __name__ == '__main__':
     neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
     # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
     neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    params = GDparams()
+    neural_net.MiniBatchGD(X_train[:2, :100], Y_train[:, :100], params, lamda=1)
 
 
 
