@@ -68,7 +68,7 @@ if __name__ == '__main__':
     neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
     # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
     neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
-    params = GDparams()
+    params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
     neural_net.MiniBatchGD(X_train[:2, :100], Y_train[:, :100], params, lamda=1)
 
 
