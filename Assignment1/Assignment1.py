@@ -56,9 +56,10 @@ if __name__ == '__main__':
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
 
-    neural_net = OLNN(X_train[:2, :100], Y_train[:, :100], )
+    neural_net = OLNN(X_train, Y_train)
 
-    # neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
     params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
-    neural_net.MiniBatchGD(X_train, Y_train, X_validation, Y_validation, params)
+
+    # neural_net.MiniBatchGD(X_train, Y_train, X_validation, Y_validation, params)

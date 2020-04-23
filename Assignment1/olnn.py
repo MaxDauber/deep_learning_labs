@@ -59,11 +59,12 @@ class OLNN:
                 Softmax transformed data
 
         """
-        return np.exp(X) / np.sum(np.exp(X), axis=0)
+        e = np.exp(X - np.max(X))
+        return e / e.sum(axis=0)
 
 
 
-    def EvaluateClassifier(self, X, W, b):
+    def EvaluateClassifier(self, X):
         """
             Output stable softmax probabilities of the classifier
 
@@ -75,10 +76,10 @@ class OLNN:
             Returns:
                 Softmax matrix of output probabilities
             """
-        return self.Softmax(np.matmul(W, X) + b)
+        return self.Softmax(self.W@X + self.b)
 
 
-    def ComputeAccuracy(self, X, y, W, b):
+    def ComputeAccuracy(self, X, y):
         """
            Compute accuracy of network's predictions
 
@@ -93,7 +94,7 @@ class OLNN:
         """
 
         # calculate predictions
-        preds = np.argmax(self.EvaluateClassifier(X, W, b), axis=0)
+        preds = np.argmax(self.EvaluateClassifier(X), axis=0)
 
         # calculate num of correct predictions
         num_correct = np.count_nonzero((y - preds) == 0)
@@ -107,7 +108,7 @@ class OLNN:
 
         return acc
 
-    def ComputeCost(self, X, Y, W, b, lamda):
+    def ComputeCost(self, X, Y, lamda):
         """
             Computes the cost function for the set of images using cross-entropy loss
 
@@ -124,17 +125,17 @@ class OLNN:
         N = np.shape(X)[1]
 
         # L2 regularization term
-        regularization_term = lamda * np.sum(np.power(W, 2))
+        regularization_term = lamda * np.sum(np.power(self.W, 2))
 
         # cross-entropy loss term
-        loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), self.EvaluateClassifier(X, W, b)), axis=0), axis=0))
+        loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), self.EvaluateClassifier(X)), axis=0), axis=0))
 
         # Cost Function Calculation
         J = (1/N) * np.sum(loss_term) + regularization_term
 
         return J
 
-    def ComputeGradientsAnalytical(self, X, Y, W, lamda):
+    def ComputeGradientsAnalytical(self, X, Y):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -151,10 +152,11 @@ class OLNN:
 
         """
 
-        grad_W = np.zeros(np.shape(W))
+        grad_W = np.zeros(np.shape(self.W))
         grad_b = np.zeros(np.shape(self.b))
-        P = self.EvaluateClassifier(X, self.W, self.b)
+        P = self.EvaluateClassifier(X)
         N = np.shape(X)[1]
+
         for i in range(N):
             Y_i = Y[:, i].reshape((-1, 1))
             P_i = P[:, i].reshape((-1, 1))
@@ -163,7 +165,7 @@ class OLNN:
             grad_W = grad_W + g * X[:, i]
 
         grad_b = np.divide(grad_b, N)
-        grad_W = np.divide(grad_W, N) + 2 * lamda * W
+        grad_W = np.divide(grad_W, N) + 2 * self.lamda * self.W
 
         return grad_W, grad_b
 
@@ -173,10 +175,10 @@ class OLNN:
         no 	= 	W.shape[0]
         d 	= 	X.shape[0]
 
-        grad_W = np.zeros(W.shape);
-        grad_b = np.zeros((no, 1));
+        grad_W = np.zeros(W.shape)
+        grad_b = np.zeros((no, 1))
 
-        c = self.ComputeCost(X, Y, W, b, lamda);
+        c = self.ComputeCost(X, Y, W, b, lamda)
 
         for i in range(len(b)):
             b_try = np.array(b)
@@ -198,8 +200,8 @@ class OLNN:
         no 	= 	W.shape[0]
         d 	= 	X.shape[0]
 
-        grad_W = np.zeros(W.shape);
-        grad_b = np.zeros((no, 1));
+        grad_W = np.zeros(W.shape)
+        grad_b = np.zeros((no, 1))
         for i in range(len(b)):
             b_try = np.array(b)
             b_try[i] -= h
@@ -234,14 +236,14 @@ class OLNN:
             Returns:
                 None
         """
-        P = self.EvaluateClassifier(X, self.W, self.b)
+        P = self.EvaluateClassifier(X)
 
         if method == 'fast':
             grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
         elif method == 'slow':
             grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
 
-        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, self.W, self.lamda)
+        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y)
 
 
         grad_w_vec = grad_w.flatten()
@@ -272,28 +274,30 @@ class OLNN:
             acc_val   (float): the accuracy on the validation set
             acc_test  (float): the accuracy on the testing set
         """
-        self.cost_hist_tr = []
-        self.cost_hist_val = []
-        self.acc_hist_tr = []
-        self.acc_hist_val = []
+        # self.cost_hist_tr = []
+        # self.cost_hist_val = []
+        # self.acc_hist_tr = []
+        # self.acc_hist_val = []
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
         for epoch in range(GDparams.n_epochs):
-            for j in range(num_batches):
-                j_start = j * GDparams.n_batch
-                j_end = j * GDparams.n_batch + GDparams.n_batch
-                X_batch = X[:, j_start:j_end]
-                Y_batch = Y[:, j_start:j_end]
-                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch,  self.W, self.lamda)
-                self.w = self.w - GDparams.eta * grad_w
+            for step in range(num_batches):
+                start_batch = step * GDparams.n_batch
+                end_batch = step * GDparams.n_batch + GDparams.n_batch
+                X_batch = X[:, start_batch:end_batch]
+                Y_batch = Y[:, start_batch:end_batch]
+                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch)
+                self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
+            print(epoch)
+            # if verbose:
+                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val)
+        # self.plot_cost_and_acc()
+        # self.show_w()
 
-                if verbose:
-                    self.PerformanceUpdate(epoch, X, Y, self.X_val, self.Y_val)
-            # self.plot_cost_and_acc()
-            # self.show_w()
+
 
     def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val):
         """
@@ -301,16 +305,17 @@ class OLNN:
         so it can be used later to plot the evolution of the performance
         """
         Y_pred_train = self.EvaluateClassifier(X_train)
-        Y_pred_val = self.evaluate(X_val)
-        cost_train = self.compute_cost(X_train, Y_pred_train)
-        acc_train = self.compute_accuracy(Y_pred_train, Y_train)
-        cost_val = self.compute_cost(X_val, Y_pred_val)
-        acc_val = self.compute_accuracy(Y_pred_val, Y_val)
-        self.cost_hist_tr.append(cost_train)
-        self.acc_hist_tr.append(acc_train)
-        self.cost_hist_val.append(cost_val)
-        self.acc_hist_val.append(acc_val)
-        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train)
+        Y_pred_val = self.EvaluateClassifier(X_val)
+        cost_train = self.ComputeCost(X_train, Y_pred_train, self.lamda)
+        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train)
+        cost_val = self.ComputeCost(X_val, Y_pred_val, self.lamda)
+        acc_val = self.ComputeAccuracy(Y_pred_val, Y_val)
+        # self.cost_hist_tr.append(cost_train)
+        # self.acc_hist_tr.append(acc_train)
+        # self.cost_hist_val.append(cost_val)
+        # self.acc_hist_val.append(acc_val)
+        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
+              " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
 
 
 class GDparams:
