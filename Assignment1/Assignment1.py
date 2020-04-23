@@ -27,7 +27,7 @@ def LoadBatch(filename):
         dataDict = pickle.load(f, encoding='bytes')
 
         X = (dataDict[b"data"] / 255).T
-        y = dataDict[b"labels"]
+        y = np.array(dataDict[b"labels"])
         Y = (np.eye(10)[y]).T
 
     return X, Y, y
@@ -50,16 +50,26 @@ def montage(W):
 if __name__ == '__main__':
     cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
     np.random.seed(7)
-
-
+    # y = N, // X = dxN // Y=KxN
     X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
-
-    neural_net = OLNN(X_train, Y_train)
-
+    data = {
+        'X_train': X_train[:2, :100],
+        'Y_train': Y_train[:, :100],
+        'y_train': y_train,
+        'X_validation': X_validation,
+        'Y_validation': Y_validation,
+        'y_validation': y_validation,
+        'X_test': X_test,
+        'Y_test': Y_test,
+        'y_test': y_test
+    }
+    neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
     neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
-    params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
-
+    #
+    # params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
     # neural_net.MiniBatchGD(X_train, Y_train, X_validation, Y_validation, params)
+
+

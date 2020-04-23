@@ -10,7 +10,7 @@ class OLNN:
     OLNN - One Layer Neural Net
     """
 
-    def __init__(self, data, targets, **kwargs):
+    def __init__(self, extracted, data, targets, **kwargs):
         """
         Initialize Neural Network with data and parameters
         """
@@ -25,6 +25,8 @@ class OLNN:
 
         for var, default in var_defaults.items():
             setattr(self, var, kwargs.get(var, default))
+        for k, v in extracted.items():
+            setattr(self, k, v)
 
         self.d = data.shape[0]
         self.n = data.shape[1]
@@ -59,12 +61,11 @@ class OLNN:
                 Softmax transformed data
 
         """
-        e = np.exp(X - np.max(X))
-        return e / e.sum(axis=0)
+        return np.exp(X) / sum(np.exp(X))
 
 
 
-    def EvaluateClassifier(self, X):
+    def EvaluateClassifier(self, X, W, b):
         """
             Output stable softmax probabilities of the classifier
 
@@ -76,10 +77,10 @@ class OLNN:
             Returns:
                 Softmax matrix of output probabilities
             """
-        return self.Softmax(self.W@X + self.b)
+        return self.Softmax(np.dot(W, X) + b)
 
 
-    def ComputeAccuracy(self, X, y):
+    def ComputeAccuracy(self, X, y, W, b):
         """
            Compute accuracy of network's predictions
 
@@ -94,7 +95,7 @@ class OLNN:
         """
 
         # calculate predictions
-        preds = np.argmax(self.EvaluateClassifier(X), axis=0)
+        preds = np.argmax(self.EvaluateClassifier(X, W, b), axis=0)
 
         # calculate num of correct predictions
         num_correct = np.count_nonzero((y - preds) == 0)
@@ -108,7 +109,7 @@ class OLNN:
 
         return acc
 
-    def ComputeCost(self, X, Y, lamda):
+    def ComputeCost(self, X, Y, W, b, lamda):
         """
             Computes the cost function for the set of images using cross-entropy loss
 
@@ -125,17 +126,17 @@ class OLNN:
         N = np.shape(X)[1]
 
         # L2 regularization term
-        regularization_term = lamda * np.sum(np.power(self.W, 2))
+        regularization_term = lamda * np.sum(np.power(W, 2))
 
         # cross-entropy loss term
-        loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), self.EvaluateClassifier(X)), axis=0), axis=0))
+        loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), self.EvaluateClassifier(X, W, b)), axis=0), axis=0))
 
         # Cost Function Calculation
         J = (1/N) * np.sum(loss_term) + regularization_term
 
         return J
 
-    def ComputeGradientsAnalytical(self, X, Y):
+    def ComputeGradientsAnalytical(self, X, Y, P, W, lamda):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -152,9 +153,9 @@ class OLNN:
 
         """
 
+
         grad_W = np.zeros(np.shape(self.W))
         grad_b = np.zeros(np.shape(self.b))
-        P = self.EvaluateClassifier(X)
         N = np.shape(X)[1]
 
         for i in range(N):
@@ -165,8 +166,7 @@ class OLNN:
             grad_W = grad_W + g * X[:, i]
 
         grad_b = np.divide(grad_b, N)
-        grad_W = np.divide(grad_W, N) + 2 * self.lamda * self.W
-
+        grad_W = np.divide(grad_W, N) + 2 * lamda * W
         return grad_W, grad_b
 
 
@@ -224,7 +224,7 @@ class OLNN:
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
 
-    def CheckGradients(self, X, Y, method="fast"):
+    def CheckGradients(self, X, Y, method="slow"):
         """
             Checks analytically computed gradients against numerically computed to compute error
 
@@ -236,14 +236,12 @@ class OLNN:
             Returns:
                 None
         """
-        P = self.EvaluateClassifier(X)
-
+        P = self.EvaluateClassifier(X, self.W, self.b)
         if method == 'fast':
             grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
         elif method == 'slow':
             grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
-
-        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y)
+        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, P, self.W, self.b)
 
 
         grad_w_vec = grad_w.flatten()
@@ -274,11 +272,8 @@ class OLNN:
             acc_val   (float): the accuracy on the validation set
             acc_test  (float): the accuracy on the testing set
         """
-        # self.cost_hist_tr = []
-        # self.cost_hist_val = []
-        # self.acc_hist_tr = []
-        # self.acc_hist_val = []
 
+        print("starting MiniBatch Descent")
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
@@ -288,7 +283,8 @@ class OLNN:
                 end_batch = step * GDparams.n_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch)
+                Y_pred = self.EvaluateClassifier(X_batch, self.W, self.b)
+                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, Y_pred)
                 self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
             print(epoch)
@@ -318,6 +314,7 @@ class OLNN:
               " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
 
 
+
 class GDparams:
     """
     Class containing hyperparameters for MiniBatchGD
@@ -333,3 +330,4 @@ class GDparams:
 
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs
+
