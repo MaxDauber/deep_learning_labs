@@ -136,7 +136,7 @@ class OLNN:
 
         return J
 
-    def ComputeGradientsAnalytical(self, X, Y, P, W, lamda):
+    def ComputeGradientsAnalytical(self, X, Y, W, b, lamda):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -241,6 +241,7 @@ class OLNN:
             grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
         elif method == 'slow':
             grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
+
         grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, P, self.W, self.b)
 
 
@@ -253,7 +254,7 @@ class OLNN:
         print("* Bias gradients *")
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-    def MiniBatchGD(self, X, Y, X_val, Y_val, GDparams, verbose=True):
+    def MiniBatchGD(self, X, Y, GDparams, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
@@ -278,16 +279,17 @@ class OLNN:
         num_batches = int(self.n / GDparams.n_batch)
 
         for epoch in range(GDparams.n_epochs):
+            print("starting epoch:", epoch)
+            print(self.W)
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
                 end_batch = step * GDparams.n_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
                 Y_pred = self.EvaluateClassifier(X_batch, self.W, self.b)
-                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, Y_pred)
+                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, Y_pred, self.W, self.lamda)
                 self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
-            print(epoch)
             # if verbose:
                 # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val)
         # self.plot_cost_and_acc()
