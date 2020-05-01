@@ -64,12 +64,23 @@ if __name__ == '__main__':
     X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
-
-    neural_net = OLNN(X_train[:2, :100], Y_train[:, :100])
-    # ann1.check_gradients(X_train[:2, :100], Y_train[:, :100], method='finite_diff')
+    data = {
+        'X_train': X_train,
+        'Y_train': Y_train,
+        'y_train': y_train,
+        'X_validation': X_validation,
+        'Y_validation': Y_validation,
+        'y_validation': y_validation,
+        'X_test': X_test,
+        'Y_test': Y_test,
+        'y_test': y_test
+    }
+    neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
     neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
-    params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
-    neural_net.MiniBatchGD(X_train[:2, :100], Y_train[:, :100], params, lamda=1)
+
+    neural_net = OLNN(data, X_train, Y_train)
+    params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lambda = 0)
+    neural_net.MiniBatchGD(X_train, Y_train, params, lamda=1)
 
 
 

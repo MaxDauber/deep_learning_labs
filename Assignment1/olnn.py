@@ -14,7 +14,7 @@ class OLNN:
     OLNN - One Layer Neural Net
     """
 
-    def __init__(self, data, targets, **kwargs):
+    def __init__(self, extracted, data, targets, **kwargs):
         """
         Initialize Neural Network with data and parameters
         """
@@ -29,6 +29,8 @@ class OLNN:
 
         for var, default in var_defaults.items():
             setattr(self, var, kwargs.get(var, default))
+        for k, v in extracted.items():
+            setattr(self, k, v)
 
         self.d = data.shape[0]
         self.n = data.shape[1]
@@ -292,32 +294,34 @@ class OLNN:
                 end_batch = step * GDparams.n_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, lamda)
+                grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
                 self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
-            print(epoch)
-            # if verbose:
-                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val)
+            # print("epoch: ", epoch, " gradients: ", self.W, self.b)
+            if verbose:
+                self.PerformanceUpdate(epoch, X, Y, self.X_validation, self.Y_validation, GDparams.lamda)
         # self.plot_cost_and_acc()
         # self.show_w()
 
-    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val):
+    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val, lamda):
         """
         Compute and store the performance (cost and accuracy) of the model after every epoch,
         so it can be used later to plot the evolution of the performance
         """
-        Y_pred_train = self.EvaluateClassifier(X_train)
-        Y_pred_val = self.EvaluateClassifier(X_val)
-        cost_train = self.ComputeCost(X_train, Y_pred_train, self.lamda)
-        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train)
-        cost_val = self.ComputeCost(X_val, Y_pred_val, self.lamda)
-        acc_val = self.ComputeAccuracy(Y_pred_val, Y_val)
+        print(np.shape(X_train))
+        print(np.shape(self.W))
+        Y_pred_train = self.EvaluateClassifier(X_train, self.W, self.b)
+        # Y_pred_val = self.EvaluateClassifier(X_val, self.W, self.b)
+        cost_train = self.ComputeCost(X_train, Y_pred_train, self.W, self.b, lamda)
+        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train, self.W, self.b)
+        # cost_val = self.ComputeCost(X_val, Y_pred_val, self.W, self.b, lamda)
+        # acc_val = self.ComputeAccuracy(Y_pred_val, Y_val, self.W, self.b)
         # self.cost_hist_tr.append(cost_train)
         # self.acc_hist_tr.append(acc_train)
         # self.cost_hist_val.append(cost_val)
         # self.acc_hist_val.append(acc_val)
-        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
-              " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
+        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train)
+              # " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
 
 class GDparams:
     """
@@ -325,7 +329,7 @@ class GDparams:
 
     """
 
-    def __init__(self, n_batch, eta, n_epochs):
+    def __init__(self, n_batch, eta, n_epochs, lamda):
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
@@ -334,3 +338,5 @@ class GDparams:
 
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs
+
+        self.lamda = lamda
