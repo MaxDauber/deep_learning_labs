@@ -65,11 +65,11 @@ if __name__ == '__main__':
         'Y_test': Y_test,
         'y_test': y_test
     }
-    neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
-    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    neural_net = OLNN(data, X_train, Y_train)
+    neural_net.CheckGradients(X_train, Y_train, neural_net.W, neural_net.b, lamda=1)
 
-    neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
-    params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
-    neural_net.MiniBatchGD(X_train[:2, :100], Y_train[:, :100], params)
+    # neural_net = OLNN(data, X_train, Y_train)
+    # params = GDparams(n_batch = 100, eta = 0.01, n_epochs = 40)
+    # neural_net.MiniBatchGD(X_train, Y_train, params, neural_net.W, neural_net.b, lamda=1)
 
 

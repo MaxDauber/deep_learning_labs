@@ -4,6 +4,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 class OLNN:
     """
@@ -152,7 +153,7 @@ class OLNN:
                 grad_b: gradient of the bias parameter
 
         """
-
+        P = self.EvaluateClassifier(X, W, b)
 
         grad_W = np.zeros(np.shape(self.W))
         grad_b = np.zeros(np.shape(self.b))
@@ -224,7 +225,7 @@ class OLNN:
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
 
-    def CheckGradients(self, X, Y, method="slow"):
+    def CheckGradients(self, X, Y, W, b, lamda, method="fast"):
         """
             Checks analytically computed gradients against numerically computed to compute error
 
@@ -236,13 +237,18 @@ class OLNN:
             Returns:
                 None
         """
-        P = self.EvaluateClassifier(X, self.W, self.b)
-        if method == 'fast':
-            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
-        elif method == 'slow':
-            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
+        randomdata = random.sample(range(0, np.shape(X)[1]), 3)
+        X = X[:, randomdata]
+        Y = Y[:, randomdata]
 
-        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, P, self.W, self.b)
+        P = self.EvaluateClassifier(X, W, b)
+        print("running", method)
+        if method == 'fast':
+            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, W, b, lamda, .000001)
+        elif method == 'slow':
+            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, W, b, lamda, .000001)
+        print("running analytical")
+        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, P, W, b)
 
 
         grad_w_vec = grad_w.flatten()
@@ -254,7 +260,7 @@ class OLNN:
         print("* Bias gradients *")
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-    def MiniBatchGD(self, X, Y, GDparams, verbose=True):
+    def MiniBatchGD(self, X, Y, GDparams, W, b, lamda, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
@@ -280,33 +286,33 @@ class OLNN:
 
         for epoch in range(GDparams.n_epochs):
             print("starting epoch:", epoch)
-            print(self.W)
+            print(W)
+            print(b)
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
                 end_batch = step * GDparams.n_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                Y_pred = self.EvaluateClassifier(X_batch, self.W, self.b)
-                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, Y_pred, self.W, self.lamda)
-                self.W = self.W - GDparams.eta * grad_w
-                self.b = self.b - GDparams.eta * grad_b
+                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, W, b, lamda)
+                W = W - GDparams.eta * grad_w
+                b = b - GDparams.eta * grad_b
             # if verbose:
-                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val)
+                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val, lamda)
         # self.plot_cost_and_acc()
         # self.show_w()
 
 
 
-    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val):
+    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val, lamda):
         """
         Compute and store the performance (cost and accuracy) of the model after every epoch,
         so it can be used later to plot the evolution of the performance
         """
         Y_pred_train = self.EvaluateClassifier(X_train)
         Y_pred_val = self.EvaluateClassifier(X_val)
-        cost_train = self.ComputeCost(X_train, Y_pred_train, self.lamda)
+        cost_train = self.ComputeCost(X_train, Y_pred_train, lamda)
         acc_train = self.ComputeAccuracy(Y_pred_train, Y_train)
-        cost_val = self.ComputeCost(X_val, Y_pred_val, self.lamda)
+        cost_val = self.ComputeCost(X_val, Y_pred_val, lamda)
         acc_val = self.ComputeAccuracy(Y_pred_val, Y_val)
         # self.cost_hist_tr.append(cost_train)
         # self.acc_hist_tr.append(acc_train)
