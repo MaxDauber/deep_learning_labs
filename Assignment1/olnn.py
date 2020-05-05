@@ -140,7 +140,7 @@ class OLNN:
 
         return J
 
-    def ComputeGradients(self, X, Y, P, W, lamda):
+    def ComputeGradients(self, X, Y, W, b, lamda):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -158,7 +158,9 @@ class OLNN:
         """
 
         grad_W = np.zeros(np.shape(W))
-        grad_b = np.zeros(np.shape(self.b))
+        grad_b = np.zeros(np.shape(b))
+
+        P = self.EvaluateClassifier(X, W, b)
 
         N = np.shape(X)[1]
         for i in range(N):
@@ -228,7 +230,7 @@ class OLNN:
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
 
-    def CheckGradients(self, X, Y, method="fast"):
+    def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
             Checks analytically computed gradients against numerically computed to compute error
 
@@ -243,11 +245,11 @@ class OLNN:
         P = self.EvaluateClassifier(X, self.W, self.b)
 
         if method == 'fast':
-            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, self.lamda, .000001)
+            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, lamda, .000001)
         elif method == 'slow':
-            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, self.lamda, .000001)
+            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
 
-        grad_b, grad_w = self.ComputeGradients(X, Y, P, self.W, self.lamda)
+        grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
 
 
         grad_w_vec = grad_w.flatten()
@@ -297,31 +299,19 @@ class OLNN:
                 grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
                 self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
-            # print("epoch: ", epoch, " gradients: ", self.W, self.b)
             if verbose:
-                self.PerformanceUpdate(epoch, X, Y, self.X_validation, self.Y_validation, GDparams.lamda)
-        # self.plot_cost_and_acc()
-        # self.show_w()
-
-    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val, lamda):
-        """
-        Compute and store the performance (cost and accuracy) of the model after every epoch,
-        so it can be used later to plot the evolution of the performance
-        """
-        print(np.shape(X_train))
-        print(np.shape(self.W))
-        Y_pred_train = self.EvaluateClassifier(X_train, self.W, self.b)
-        # Y_pred_val = self.EvaluateClassifier(X_val, self.W, self.b)
-        cost_train = self.ComputeCost(X_train, Y_pred_train, self.W, self.b, lamda)
-        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train, self.W, self.b)
-        # cost_val = self.ComputeCost(X_val, Y_pred_val, self.W, self.b, lamda)
-        # acc_val = self.ComputeAccuracy(Y_pred_val, Y_val, self.W, self.b)
-        # self.cost_hist_tr.append(cost_train)
-        # self.acc_hist_tr.append(acc_train)
-        # self.cost_hist_val.append(cost_val)
-        # self.acc_hist_val.append(acc_val)
-        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train)
-              # " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
+                Y_pred_train = self.EvaluateClassifier(X, W, b)
+                Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
+                cost_train = self.ComputeCost(X, Y_pred_train, W, b, GDparams.lamda)
+                acc_train = self.ComputeAccuracy(Y_pred_train, Y, W, b)
+                cost_val = self.ComputeCost(self.X_validation, Y_pred_val, self.W, self.b, GDparams.lamda)
+                acc_val = self.ComputeAccuracy(Y_pred_val, self.Y_validation, self.W, self.b)
+                # self.cost_hist_tr.append(cost_train)
+                # self.acc_hist_tr.append(acc_train)
+                # self.cost_hist_val.append(cost_val)
+                # self.acc_hist_val.append(acc_val)
+                print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
+                      " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
 
 class GDparams:
     """
