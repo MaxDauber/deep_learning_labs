@@ -75,21 +75,15 @@ if __name__ == '__main__':
         'Y_test': Y_test,
         'y_test': y_test
     }
-    neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
-    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    # neural_net = OLNN(data, X_train[:2, :100], Y_train[:, :100])
+    # neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
     neural_net = OLNN(data, X_train, Y_train)
-    params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lambda = 0)
-    neural_net.MiniBatchGD(X_train, Y_train, params, lamda=1)
+    params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lamda = 0)
+    neural_net.MiniBatchGD(X_train, Y_train, params)
 
-
-
-    # meanx = np.mean(X_train, axis=0)
-    # stdx = np.std(X_train, axis=0)
-    #
-    # X_train -= meanx
-    # X_train /= stdx
-    # X_validation -= meanx
-    # X_validation /= stdx
-    # X_test -= meanx
-    # X_test /= stdx
+    # lamdas = [0, 0, .1, 1]
+    # etas = [.1, .01, .01, .01]
+    # for iter in range(4):
+    #     params = GDparams(n_batch=100, eta=etas[iter], n_epochs=40, lamda = lamdas[iter])
+    #     neural_net.MiniBatchGD(X_train, Y_train, params)

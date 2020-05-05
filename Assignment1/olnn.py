@@ -259,7 +259,7 @@ class OLNN:
         print("* Bias gradients *")
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-    def MiniBatchGD(self, X, Y, GDparams, lamda, verbose=True):
+    def MiniBatchGD(self, X, Y, GDparams, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
