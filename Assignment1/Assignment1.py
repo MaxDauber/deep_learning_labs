@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
     neural_net = OLNN(data, X_train, Y_train)
     params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lamda = 0)
-    neural_net.MiniBatchGD(X_train, Y_train, params)
+    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
 
     # lamdas = [0, 0, .1, 1]
     # etas = [.1, .01, .01, .01]

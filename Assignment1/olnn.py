@@ -261,7 +261,7 @@ class OLNN:
         print("* Bias gradients *")
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-    def MiniBatchGD(self, X, Y, GDparams, verbose=True):
+    def MiniBatchGD(self, X, Y, y, GDparams, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
@@ -290,7 +290,7 @@ class OLNN:
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
-        for epoch in range(GDparams.n_epochs):
+        for epoch in range(1, GDparams.n_epochs + 1):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
                 end_batch = step * GDparams.n_batch + GDparams.n_batch
@@ -299,19 +299,30 @@ class OLNN:
                 grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
                 self.W = self.W - GDparams.eta * grad_w
                 self.b = self.b - GDparams.eta * grad_b
+            # print("Epoch: ", epoch, " W: ", self.W)
             if verbose:
-                Y_pred_train = self.EvaluateClassifier(X, W, b)
-                Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
-                cost_train = self.ComputeCost(X, Y_pred_train, W, b, GDparams.lamda)
-                acc_train = self.ComputeAccuracy(Y_pred_train, Y, W, b)
-                cost_val = self.ComputeCost(self.X_validation, Y_pred_val, self.W, self.b, GDparams.lamda)
-                acc_val = self.ComputeAccuracy(Y_pred_val, self.Y_validation, self.W, self.b)
+                # Y_pred_train = self.EvaluateClassifier(X, W, b)
+                # Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
+                print("X ", np.shape(X))
+                print("Y ", np.shape(Y))
+                print("y ", np.shape(y))
+                print("W ", np.shape(W))
+                print("b ", np.shape(b))
+                print("X_val ", np.shape(self.X_validation))
+                print("Y_val ", np.shape(self.Y_validation))
+                print("y_val ", np.shape(self.y_validation))
+                cost_train = self.ComputeCost(X, Y, W, b, GDparams.lamda)
+                acc_train = self.ComputeAccuracy(X, y, W, b)
+                cost_val = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
+                acc_val = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
                 # self.cost_hist_tr.append(cost_train)
                 # self.acc_hist_tr.append(acc_train)
                 # self.cost_hist_val.append(cost_val)
                 # self.acc_hist_val.append(acc_val)
                 print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
                       " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
+# def ComputeCost(self, X, Y, W, b, lamda):
+# def ComputeAccuracy(self, X, y, W, b):
 
 class GDparams:
     """
