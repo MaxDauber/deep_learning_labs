@@ -7,7 +7,7 @@ This assignment implements a one-layer neural network.
 """
 
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 class OLNN:
     """
@@ -275,29 +275,21 @@ class OLNN:
                 lamda: regularization term
                 verbose :
         Returns:
-            acc_train (float): the accuracy on the training set
-            acc_val   (float): the accuracy on the validation set
+            training_accuracy (float): the accuracy on the training set
+            validation_accuracy   (float): the accuracy on the validation set
             acc_test  (float): the accuracy on the testing set
         """
-        self.cost_hist_tr = []
-        self.cost_hist_val = []
-        self.acc_hist_tr = []
-        self.acc_hist_val = []
-        # print("X ", np.shape(X))
-        # print("Y ", np.shape(Y))
-        # print("y ", np.shape(y))
-        # print("W ", np.shape(W))
-        # print("b ", np.shape(b))
-        # print("X_val ", np.shape(self.X_validation))
-        # print("Y_val ", np.shape(self.Y_validation))
-        # print("y_val ", np.shape(self.y_validation))
+        self.history_training_cost = []
+        self.history_validation_cost = []
+        self.history_training_accuracy = []
+        self.history_validation_accuracy = []
 
 
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
-        for epoch in range(1, GDparams.n_epochs+1):
+        for epoch in range(GDparams.n_epochs):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
                 end_batch = start_batch + GDparams.n_batch
@@ -307,16 +299,38 @@ class OLNN:
                 W = W - GDparams.eta * grad_w
                 b = b - GDparams.eta * grad_b
             if verbose:
-                # Y_pred_train = self.EvaluateClassifier(X, W, b)
-                # Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
-                cost_train = self.ComputeCost(X, Y, W, b, GDparams.lamda)
-                acc_train = self.ComputeAccuracy(X, y, W, b)
-                cost_val = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
-                acc_val = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
-                print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
-                      " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
-# def ComputeCost(self, X, Y, W, b, lamda):
-# def ComputeAccuracy(self, X, y, W, b):
+                Y_pred_train = self.EvaluateClassifier(X, W, b)
+                Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
+                training_cost = self.ComputeCost(X, Y, W, b, GDparams.lamda)
+                training_accuracy = self.ComputeAccuracy(X, y, W, b)
+                validation_cost = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
+                validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
+                self.history_training_cost.append(training_cost)
+                self.history_training_accuracy.append(training_accuracy)
+                self.history_validation_cost.append(validation_cost)
+                self.history_validation_accuracy.append(validation_accuracy)
+                print("Epoch ", epoch,
+                      " | Train accuracy: ", "{:.4f}".format(training_accuracy),
+                      " | Train cost: ", "{:.10f}".format(training_cost),
+                      " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
+                      " | Validation cost: ", "{:.10f}".format(validation_cost))
+
+    def GeneratePlots(self):
+        x = list(range(1, len(self.history_training_cost) + 1))
+        plt.plot(x, self.history_training_cost, label="Training Loss")
+        plt.plot(x, self.history_validation_cost, label="Validation Loss")
+        plt.title("Loss over epochs for ")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.show()
+        plt.plot(x, self.history_training_accuracy, label="Training Accuracy")
+        plt.plot(x, self.history_validation_accuracy, label="Validation Accuracy")
+        plt.title("Accuracy over epochs")
+        plt.xlabel("Epochs")
+        plt.ylabel("Accuracy")
+        plt.legend()
+        plt.show()
 
 class GDparams:
     """
