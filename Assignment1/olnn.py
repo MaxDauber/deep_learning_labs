@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # author: Max Dauber  dauber@kth.se
+"""
+This is the main file of Assignment 1 for DD2424 Deep Learning
+This assignment implements a one-layer neural network.
+"""
 
 import numpy as np
-import matplotlib.pyplot as plt
-import random
+# import matplotlib.pyplot as plt
 
 class OLNN:
     """
@@ -62,7 +65,7 @@ class OLNN:
                 Softmax transformed data
 
         """
-        return np.exp(X) / sum(np.exp(X))
+        return np.exp(X) / np.sum(np.exp(X), axis=0)
 
 
 
@@ -78,7 +81,7 @@ class OLNN:
             Returns:
                 Softmax matrix of output probabilities
             """
-        return self.Softmax(np.dot(W, X) + b)
+        return self.Softmax(np.matmul(W, X) + b)
 
 
     def ComputeAccuracy(self, X, y, W, b):
@@ -137,7 +140,7 @@ class OLNN:
 
         return J
 
-    def ComputeGradientsAnalytical(self, X, Y, W, b, lamda):
+    def ComputeGradients(self, X, Y, W, b, lamda):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -153,12 +156,13 @@ class OLNN:
                 grad_b: gradient of the bias parameter
 
         """
+
+        grad_W = np.zeros(np.shape(W))
+        grad_b = np.zeros(np.shape(b))
+
         P = self.EvaluateClassifier(X, W, b)
 
-        grad_W = np.zeros(np.shape(self.W))
-        grad_b = np.zeros(np.shape(self.b))
         N = np.shape(X)[1]
-
         for i in range(N):
             Y_i = Y[:, i].reshape((-1, 1))
             P_i = P[:, i].reshape((-1, 1))
@@ -168,6 +172,7 @@ class OLNN:
 
         grad_b = np.divide(grad_b, N)
         grad_W = np.divide(grad_W, N) + 2 * lamda * W
+
         return grad_W, grad_b
 
 
@@ -176,10 +181,10 @@ class OLNN:
         no 	= 	W.shape[0]
         d 	= 	X.shape[0]
 
-        grad_W = np.zeros(W.shape)
-        grad_b = np.zeros((no, 1))
+        grad_W = np.zeros(W.shape);
+        grad_b = np.zeros((no, 1));
 
-        c = self.ComputeCost(X, Y, W, b, lamda)
+        c = self.ComputeCost(X, Y, W, b, lamda);
 
         for i in range(len(b)):
             b_try = np.array(b)
@@ -201,8 +206,8 @@ class OLNN:
         no 	= 	W.shape[0]
         d 	= 	X.shape[0]
 
-        grad_W = np.zeros(W.shape)
-        grad_b = np.zeros((no, 1))
+        grad_W = np.zeros(W.shape);
+        grad_b = np.zeros((no, 1));
         for i in range(len(b)):
             b_try = np.array(b)
             b_try[i] -= h
@@ -225,7 +230,7 @@ class OLNN:
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
 
-    def CheckGradients(self, X, Y, W, b, lamda, method="fast"):
+    def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
             Checks analytically computed gradients against numerically computed to compute error
 
@@ -237,18 +242,14 @@ class OLNN:
             Returns:
                 None
         """
-        randomdata = random.sample(range(0, np.shape(X)[1]), 3)
-        X = X[:, randomdata]
-        Y = Y[:, randomdata]
+        P = self.EvaluateClassifier(X, self.W, self.b)
 
-        P = self.EvaluateClassifier(X, W, b)
-        print("running", method)
         if method == 'fast':
-            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, W, b, lamda, .000001)
+            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, lamda, .000001)
         elif method == 'slow':
-            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, W, b, lamda, .000001)
-        print("running analytical")
-        grad_b, grad_w = self.ComputeGradientsAnalytical(X, Y, P, W, b)
+            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
+
+        grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
 
 
         grad_w_vec = grad_w.flatten()
@@ -260,68 +261,62 @@ class OLNN:
         print("* Bias gradients *")
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-    def MiniBatchGD(self, X, Y, GDparams, W, b, lamda, verbose=True):
+    def MiniBatchGD(self, X, Y, y, GDparams, W, b, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
             Args:
                 X: data matrix
                 Y: one-hot-encoding labels matrix
-                X: validation data matrix
-                Y: validation one-hot-encoding labels matrix
                 GDparams: hyperparameter object
                     n_batch : batch size
                     eta : learning rate
                     n_epochs : number of training epochs
-                verbose : whether to print updates and plot
+                lamda: regularization term
+                verbose :
         Returns:
             acc_train (float): the accuracy on the training set
             acc_val   (float): the accuracy on the validation set
             acc_test  (float): the accuracy on the testing set
         """
+        self.cost_hist_tr = []
+        self.cost_hist_val = []
+        self.acc_hist_tr = []
+        self.acc_hist_val = []
+        # print("X ", np.shape(X))
+        # print("Y ", np.shape(Y))
+        # print("y ", np.shape(y))
+        # print("W ", np.shape(W))
+        # print("b ", np.shape(b))
+        # print("X_val ", np.shape(self.X_validation))
+        # print("Y_val ", np.shape(self.Y_validation))
+        # print("y_val ", np.shape(self.y_validation))
 
-        print("starting MiniBatch Descent")
+
+
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
-        for epoch in range(GDparams.n_epochs):
-            print("starting epoch:", epoch)
-            print(W)
-            print(b)
+        for epoch in range(1, GDparams.n_epochs+1):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
-                end_batch = step * GDparams.n_batch + GDparams.n_batch
+                end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_b, grad_w = self.ComputeGradientsAnalytical(X_batch, Y_batch, W, b, lamda)
+                grad_w, grad_b = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
                 W = W - GDparams.eta * grad_w
                 b = b - GDparams.eta * grad_b
-            # if verbose:
-                # self.PerformanceUpdate(epoch, X, Y, X_val, Y_val, lamda)
-        # self.plot_cost_and_acc()
-        # self.show_w()
-
-
-
-    def PerformanceUpdate(self, epoch, X_train, Y_train, X_val, Y_val, lamda):
-        """
-        Compute and store the performance (cost and accuracy) of the model after every epoch,
-        so it can be used later to plot the evolution of the performance
-        """
-        Y_pred_train = self.EvaluateClassifier(X_train)
-        Y_pred_val = self.EvaluateClassifier(X_val)
-        cost_train = self.ComputeCost(X_train, Y_pred_train, lamda)
-        acc_train = self.ComputeAccuracy(Y_pred_train, Y_train)
-        cost_val = self.ComputeCost(X_val, Y_pred_val, lamda)
-        acc_val = self.ComputeAccuracy(Y_pred_val, Y_val)
-        # self.cost_hist_tr.append(cost_train)
-        # self.acc_hist_tr.append(acc_train)
-        # self.cost_hist_val.append(cost_val)
-        # self.acc_hist_val.append(acc_val)
-        print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
-              " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
-
-
+            if verbose:
+                # Y_pred_train = self.EvaluateClassifier(X, W, b)
+                # Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
+                cost_train = self.ComputeCost(X, Y, W, b, GDparams.lamda)
+                acc_train = self.ComputeAccuracy(X, y, W, b)
+                cost_val = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
+                acc_val = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
+                print("Epoch ", epoch, " // Train accuracy: ", acc_train, " // Train cost: ", cost_train,
+                      " // Validation accuracy: ", acc_val, " // Validation cost: ", cost_val)
+# def ComputeCost(self, X, Y, W, b, lamda):
+# def ComputeAccuracy(self, X, y, W, b):
 
 class GDparams:
     """
@@ -329,7 +324,7 @@ class GDparams:
 
     """
 
-    def __init__(self, n_batch, eta, n_epochs):
+    def __init__(self, n_batch, eta, n_epochs, lamda):
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
@@ -339,3 +334,4 @@ class GDparams:
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs
 
+        self.lamda = lamda
