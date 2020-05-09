@@ -283,27 +283,27 @@ class OLNN:
         self.cost_hist_val = []
         self.acc_hist_tr = []
         self.acc_hist_val = []
-        print("X ", np.shape(X))
-        print("Y ", np.shape(Y))
-        print("y ", np.shape(y))
-        print("W ", np.shape(W))
-        print("b ", np.shape(b))
-        print("X_val ", np.shape(self.X_validation))
-        print("Y_val ", np.shape(self.Y_validation))
-        print("y_val ", np.shape(self.y_validation))
+        # print("X ", np.shape(X))
+        # print("Y ", np.shape(Y))
+        # print("y ", np.shape(y))
+        # print("W ", np.shape(W))
+        # print("b ", np.shape(b))
+        # print("X_val ", np.shape(self.X_validation))
+        # print("Y_val ", np.shape(self.Y_validation))
+        # print("y_val ", np.shape(self.y_validation))
 
 
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
-        for epoch in range(1, GDparams.n_epochs + 1):
+        for epoch in range(1, GDparams.n_epochs+1):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
-                end_batch = step * GDparams.n_batch + GDparams.n_batch
+                end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_b, grad_w = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
+                grad_w, grad_b = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
                 W = W - GDparams.eta * grad_w
                 b = b - GDparams.eta * grad_b
             if verbose:

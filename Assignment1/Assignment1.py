@@ -82,7 +82,6 @@ if __name__ == '__main__':
     params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lamda = 0)
 
     neural_net.MiniBatchGD(X_train, Y_train, y_train, params, neural_net.W, neural_net.b)
-
     # lamdas = [0, 0, .1, 1]
     # etas = [.1, .01, .01, .01]
     # for iter in range(4):
