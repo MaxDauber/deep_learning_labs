@@ -95,7 +95,7 @@ class OLNN:
                 b: bias
 
             Returns:
-                acc (float): Accuracy of
+                acc : Accuracy on provided sets
         """
 
         # calculate predictions
@@ -299,21 +299,25 @@ class OLNN:
                 W = W - GDparams.eta * grad_w
                 b = b - GDparams.eta * grad_b
             if verbose:
-                Y_pred_train = self.EvaluateClassifier(X, W, b)
-                Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
+                # Y_pred_train = self.EvaluateClassifier(X, W, b)
+                # Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
                 training_cost = self.ComputeCost(X, Y, W, b, GDparams.lamda)
                 training_accuracy = self.ComputeAccuracy(X, y, W, b)
                 validation_cost = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
                 validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
+
                 self.history_training_cost.append(training_cost)
                 self.history_training_accuracy.append(training_accuracy)
                 self.history_validation_cost.append(validation_cost)
                 self.history_validation_accuracy.append(validation_accuracy)
+
                 print("Epoch ", epoch,
                       " | Train accuracy: ", "{:.4f}".format(training_accuracy),
                       " | Train cost: ", "{:.10f}".format(training_cost),
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
+        print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
+        self.ShowWeights(W, GDparams)
 
     def GeneratePlots(self):
         x = list(range(1, len(self.history_training_cost) + 1))
@@ -332,6 +336,23 @@ class OLNN:
         plt.legend()
         plt.show()
 
+    def ShowWeights(self, W, params):
+        """ Display the image for each label in W """
+        cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
+        fig, ax = plt.subplots(2, 5)
+        fig.suptitle(
+            "Weights learned for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+        for i in range(2):
+            for j in range(5):
+                img = W[i * 5 + j, :].reshape((32, 32, 3), order='F')
+                img = ((img - img.min()) / (img.max() - img.min()))
+                img = np.rot90(img, 3)
+                ax[i][j].imshow(img, interpolation="nearest")
+                ax[i][j].set_title(cifar_classes[i * 5 + j])
+                ax[i][j].axis('off')
+        plt.savefig("Plots/weight_visualization_eta=" + str(params.eta) + "_lamda=" + str(params.lamda) + ".png")
+        plt.show()
+
 class GDparams:
     """
     Class containing hyperparameters for MiniBatchGD
@@ -339,6 +360,7 @@ class GDparams:
     """
 
     def __init__(self, n_batch, eta, n_epochs, lamda):
+
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
@@ -348,4 +370,5 @@ class GDparams:
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs
 
+        # lamda: regularization term used for the gradient descent
         self.lamda = lamda
