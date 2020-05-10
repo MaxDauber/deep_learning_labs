@@ -316,7 +316,8 @@ class OLNN:
                       " | Train cost: ", "{:.10f}".format(training_cost),
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
-        print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
+        print("Final Test Accuracy: ",
+              "{:.10f}".format(self.ComputeAccuracy(self.X_test, self.y_test, W, b) * 100),  "%")
         self.ShowWeights(W, GDparams)
 
     def GeneratePlots(self):
@@ -340,8 +341,7 @@ class OLNN:
         """ Display the image for each label in W """
         cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
         fig, ax = plt.subplots(2, 5)
-        fig.suptitle(
-            "Weights learned for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+        #fig.suptitle("Weights learned for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
         for i in range(2):
             for j in range(5):
                 img = W[i * 5 + j, :].reshape((32, 32, 3), order='F')

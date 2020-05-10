@@ -48,7 +48,7 @@ def GeneratePlots(neural_net, params):
     x = list(range(1, len(neural_net.history_training_cost) + 1))
     plt.plot(x, neural_net.history_training_cost, label="Training Loss")
     plt.plot(x, neural_net.history_validation_cost, label="Validation Loss")
-    plt.title("Loss over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+    #plt.title("Loss over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.xticks([0, 10, 20, 30, 40])
@@ -58,7 +58,7 @@ def GeneratePlots(neural_net, params):
 
     plt.plot(x, neural_net.history_training_accuracy, label="Training Accuracy")
     plt.plot(x, neural_net.history_validation_accuracy, label="Validation Accuracy")
-    plt.title("Accuracy over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+    #plt.title("Accuracy over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")
     plt.xticks([0, 10, 20, 30, 40])
