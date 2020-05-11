@@ -230,7 +230,7 @@ class OLNN:
                 grad_W[i,j] = (c2-c1) / (2*h)
         return [grad_W, grad_b]
 
-    def CheckGradients(self, X, Y, lamda=0, method="fast"):
+    def CheckGradients(self, X, Y, method, lamda=0):
         """
             Checks analytically computed gradients against numerically computed to compute error
 
@@ -245,11 +245,11 @@ class OLNN:
         P = self.EvaluateClassifier(X, self.W, self.b)
 
         if method == 'fast':
-            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, lamda, .000001)
+            grad_w_num, grad_b_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, lamda, .000001)
         elif method == 'slow':
-            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
+            grad_w_num, grad_b_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
 
-        grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
+        grad_w, grad_b = self.ComputeGradients(X, Y, self.W, self.b, lamda)
 
 
         grad_w_vec = grad_w.flatten()
