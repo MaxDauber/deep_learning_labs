@@ -21,6 +21,10 @@ class MLNN:
             "lamda": 0,  # regularization parameter
             "batch_size": 100,  # batch size
             "epochs": 40,  # number of epochs
+            "hidden_size": 50,  # number of nodes in the hidden layer
+            "h_param": 1e-6,  # parameter h for numerical grad check
+            "lr_max": 1e-1,  # maximum for cyclical learning rate
+            "lr_min": 1e-5  # minimum for cyclical learning rate
         }
 
         for var, default in var_defaults.items():
@@ -31,7 +35,8 @@ class MLNN:
         self.d = data.shape[0]
         self.n = data.shape[1]
         self.K = targets.shape[0]
-        self.W, self.b = self.InitializeWeightsBias()
+        self.m = self.hidden_size #nodes in hidden layer
+        self.W_1, self.b_1, self.W_2, self.b_2 = self.InitializeWeightsBias()
 
     def InitializeWeightsBias(self):
         """
@@ -45,9 +50,11 @@ class MLNN:
                 W = weights K x d
         """
 
-        W = np.random.normal(self.mean_weights, self.var_weights, (self.K, self.d))
-        b = np.random.normal(self.mean_weights, self.var_weights, (self.K, 1))
-        return W, b
+        W_1 = np.random.normal(self.mean_weights, self.var_weights, (self.m, self.d))
+        W_2 = np.random.normal(self.mean_weights, self.var_weights, (self.K, self.m))
+        b_1 = np.random.normal(self.mean_weights, self.var_weights, (self.m, 1))
+        b_2 = np.random.normal(self.mean_weights, self.var_weights, (self.K, 1))
+        return W_1, b_1, W_2, b_2
 
     def Softmax(self, X):
         """
@@ -62,19 +69,31 @@ class MLNN:
         """
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
-    def EvaluateClassifier(self, X, W, b):
+    def ReLu(x):
+        """Computes ReLU activation
+        Args:
+            x: input matrix
+        Returns:
+            x : relu matrix
+        """
+        return np.maximum(x, 0)
+
+    def EvaluateClassifier(self, X, W_1, b_1, W_2, b_2):
         """
             Output stable softmax probabilities of the classifier
 
             Args:
                 X: data matrix
-                W: weights
-                b: bias
+                W_1: weights
+                b_1: bias
+                W_2: weights
+                b_2: bias
 
             Returns:
                 Softmax matrix of output probabilities
             """
-        return self.Softmax(np.matmul(W, X) + b)
+        h = self.ReLu(np.matmul(W_1, X) + b_1)
+        return self.Softmax(np.matmul(W_2, h) + b_2)
 
     def ComputeAccuracy(self, X, y, W, b):
         """
@@ -148,6 +167,9 @@ class MLNN:
                 grad_b: gradient of the bias parameter
 
         """
+
+
+
 
         grad_W = np.zeros(np.shape(W))
         grad_b = np.zeros(np.shape(b))

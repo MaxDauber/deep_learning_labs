@@ -91,8 +91,8 @@ if __name__ == '__main__':
     }
 
     # Check Gradient Code is Correct
-    # neural_net = MLNN(data, X_train[:2, :100], Y_train[:, :100])
-    # neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
+    neural_net = MLNN(data, X_train[:2, :100], Y_train[:, :100])
+    neural_net.CheckGradients(X_train[:2, :100], Y_train[:, :100])
 
     # Test Neural Network is Running
     # neural_net = OLNN(data, X_train, Y_train)
