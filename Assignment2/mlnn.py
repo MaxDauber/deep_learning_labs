@@ -92,8 +92,12 @@ class MLNN:
             Returns:
                 Softmax matrix of output probabilities
             """
-        h = self.ReLu(np.matmul(W_1, X) + b_1)
-        return self.Softmax(np.matmul(W_2, h) + b_2)
+        s1 = np.dot(W_1, X) + b_1
+        h = self.ReLU(s1)
+        s2 = np.dot(W_2, h) + b_2
+        P = self.SoftMax(s2)
+
+        return P, h, s1
 
     def ComputeAccuracy(self, X, y, W, b):
         """
@@ -124,7 +128,7 @@ class MLNN:
 
         return acc
 
-    def ComputeCost(self, X, Y, W, b, lamda):
+    def ComputeCost(self, X, Y, W_1, b_1, W_2, b_2, lamda):
         """
             Computes the cost function for the set of images using cross-entropy loss
 
@@ -136,22 +140,30 @@ class MLNN:
             Returns:
                 cost (float): the cross-entropy loss
         """
+
         # dimensions of data
         d = np.shape(X)[0]
         N = np.shape(X)[1]
 
-        # L2 regularization term
-        regularization_term = lamda * np.sum(np.power(W, 2))
+        # L2 regularization term adjusted for 2 layers
+        regularization_term = lamda * (np.sum(np.power(W_1, 2)) + np.sum(np.power(W_2, 2)))
 
         # cross-entropy loss term
-        loss_term = 0 - np.log(np.sum(np.prod((np.array(Y), self.EvaluateClassifier(X, W, b)), axis=0), axis=0))
+        P, _, _ = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        cross_entropy_loss = 0 - np.log(np.sum(np.prod((np.array(Y), P), axis=0), axis=0))
 
-        # Cost Function Calculation
-        J = (1 / N) * np.sum(loss_term) + regularization_term
 
-        return J
+        return (1 / N) * np.sum(cross_entropy_loss) + regularization_term # J
 
-    def ComputeGradients(self, X, Y, W, b, lamda):
+    def X_Positive(x):
+        above_zero_indices = x > 0
+        below_zero_indices = x <= 0
+        x[above_zero_indices] = 1
+        x[below_zero_indices] = 0
+
+        return x
+
+    def ComputeGradients(self, X, Y, W_1, b_1, W_2, b_2, lamda):
         """
             Computes the gradients of the weight and bias parameters
 
@@ -168,80 +180,89 @@ class MLNN:
 
         """
 
+        grad_W1 = np.zeros(np.shape(W_1))
+        grad_b1 = np.zeros(np.shape(b_1))
+        grad_W2 = np.zeros(np.shape(W_2))
+        grad_b2 = np.zeros(np.shape(b_2))
 
-
-
-        grad_W = np.zeros(np.shape(W))
-        grad_b = np.zeros(np.shape(b))
-
-        P = self.EvaluateClassifier(X, W, b)
+        P, h, s1 = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
 
         N = np.shape(X)[1]
         for i in range(N):
-            Y_i = Y[:, i].reshape((-1, 1))
-            P_i = P[:, i].reshape((-1, 1))
-            g = - (Y_i - P_i)
-            grad_b = grad_b + g
-            grad_W = grad_W + g * X[:, i]
+            Yi = Y[:, i].reshape((-1, 1))
+            Pi = P[:, i].reshape((-1, 1))
+            Xi = X[:, i].reshape((-1, 1))
+            hi = h[:, i].reshape((-1, 1))
+            si = s1[:, i]
 
-        grad_b = np.divide(grad_b, N)
-        grad_W = np.divide(grad_W, N) + 2 * lamda * W
+            g = Pi - Yi
+            grad_b2 = grad_b2 + g
+            grad_W2 = grad_W2 + np.dot(g, np.transpose(hi))
 
-        return grad_W, grad_b
+            # propagate error backwards
+            g = np.dot(np.transpose(W_2), g)
+            g = np.dot(np.diag(self.X_Positive(si)), g)
 
-    def ComputeGradsNum(self, X, Y, P, W, b, lamda, h):
-        """ Converted from matlab code """
-        no = W.shape[0]
-        d = X.shape[0]
+            grad_b1 = grad_b1 + g
+            grad_W1 = grad_W1 + np.dot(g, np.transpose(Xi))
 
-        grad_W = np.zeros(W.shape);
-        grad_b = np.zeros((no, 1));
+        grad_b1 = np.divide(grad_b1, N)
+        grad_W1 = np.divide(grad_W1, N) + 2 * lamda * W_1
 
-        c = self.ComputeCost(X, Y, W, b, lamda);
+        grad_b2 = np.divide(grad_b2, N)
+        grad_W2 = np.divide(grad_W2, N) + 2 * lamda * W2
 
-        for i in range(len(b)):
-            b_try = np.array(b)
-            b_try[i] += h
-            c2 = self.ComputeCost(X, Y, W, b_try, lamda)
-            grad_b[i] = (c2 - c) / h
+        return grad_W1, grad_b1, grad_W2, grad_b2
 
-        for i in range(W.shape[0]):
-            for j in range(W.shape[1]):
-                W_try = np.array(W)
-                W_try[i, j] += h
-                c2 = self.ComputeCost(X, Y, W_try, b, lamda)
-                grad_W[i, j] = (c2 - c) / h
+        # grad_W = np.zeros(np.shape(W))
+        # grad_b = np.zeros(np.shape(b))
+        #
+        # P = self.EvaluateClassifier(X, W, b)
+        #
+        # N = np.shape(X)[1]
+        # for i in range(N):
+        #     Y_i = Y[:, i].reshape((-1, 1))
+        #     P_i = P[:, i].reshape((-1, 1))
+        #     g = - (Y_i - P_i)
+        #     grad_b = grad_b + g
+        #     grad_W = grad_W + g * X[:, i]
+        #
+        # grad_b = np.divide(grad_b, N)
+        # grad_W = np.divide(grad_W, N) + 2 * lamda * W
+        #
+        # return grad_W, grad_b
 
-        return [grad_W, grad_b]
+    def ComputeGradsNumSlow(X, Y, W1, b1, W2, b2, lamb, h):
+        W = [W1, W2]
+        b = [b1, b2]
 
-    def ComputeGradsNumSlow(self, X, Y, P, W, b, lamda, h):
-        """ Converted from matlab code """
-        no = W.shape[0]
-        d = X.shape[0]
+        # initialize grads
+        grad_W = []
+        grad_b = []
 
-        grad_W = np.zeros(W.shape);
-        grad_b = np.zeros((no, 1));
-        for i in range(len(b)):
-            b_try = np.array(b)
-            b_try[i] -= h
-            c1 = self.ComputeCost(X, Y, W, b_try, lamda)
+        for i in range(len(W)):
+            Wnew = np.zeros(np.shape(W[i]))
+            grad_W.append(Wnew)
+            bnew = np.zeros(np.shape(b[i]))
+            grad_b.append(bnew)
 
-            b_try = np.array(b)
-            b_try[i] += h
-            c2 = self.ComputeCost(X, Y, W, b_try, lamda)
+        c = self.ComputeCost(X, Y, W[0], b[0], W[1], b[1], lamb)
 
-            grad_b[i] = (c2 - c1) / (2 * h)
-        for i in range(W.shape[0]):
-            for j in range(W.shape[1]):
-                W_try = np.array(W)
-                W_try[i, j] -= h
-                c1 = self.ComputeCost(X, Y, W_try, b, lamda)
-                W_try = np.array(W)
-                W_try[i, j] += h
-                c2 = self.ComputeCost(X, Y, W_try, b, lamda)
+        for k in range(len(W)):
+            for i in range(len(b[k])):
+                b_try = deepcopy(b)
+                b_try[k][i] += h
+                c2 = self.ComputeCost(X, Y, W[0], b_try[0], W[1], b_try[1], lamb)
+                grad_b[k][i] = (c2 - c) / h
 
-                grad_W[i, j] = (c2 - c1) / (2 * h)
-        return [grad_W, grad_b]
+            for i in range(W[k].shape[0]):
+                for j in range(W[k].shape[1]):
+                    W_try = deepcopy(W)
+                    W_try[k][i, j] += h
+                    c2 = self.ComputeCost(X, Y, W_try[0], b[0], W_try[1], b[1], lamb)
+                    grad_W[k][i, j] = (c2 - c) / h
+
+        return grad_W[0], grad_b[0], grad_W[1], grad_b[1]
 
     def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
@@ -255,12 +276,8 @@ class MLNN:
             Returns:
                 None
         """
-        P = self.EvaluateClassifier(X, self.W, self.b)
 
-        if method == 'fast':
-            grad_b_num, grad_w_num = self.ComputeGradsNum(X, Y, P, self.W, self.b, lamda, .000001)
-        elif method == 'slow':
-            grad_b_num, grad_w_num = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
+        grad_b1_n, grad_b2_n, grad_w1_n, grad_w2_n = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
 
         grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
 
