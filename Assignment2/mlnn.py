@@ -4,6 +4,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from copy import deepcopy
 
 class MLNN:
     """
@@ -46,8 +47,8 @@ class MLNN:
                 None
 
             Returns:
-                b = bias K x 1
-                W = weights K x d
+                b 1/2 = bias
+                W 1/2 = weights
         """
 
         W_1 = np.random.normal(self.mean_weights, self.var_weights, (self.m, self.d))
@@ -56,7 +57,7 @@ class MLNN:
         b_2 = np.random.normal(self.mean_weights, self.var_weights, (self.K, 1))
         return W_1, b_1, W_2, b_2
 
-    def Softmax(self, X):
+    def SoftMax(self, X):
         """
             Standard definition of the softmax function
 
@@ -69,7 +70,7 @@ class MLNN:
         """
         return np.exp(X) / np.sum(np.exp(X), axis=0)
 
-    def ReLu(x):
+    def ReLu(self, x):
         """Computes ReLU activation
         Args:
             x: input matrix
@@ -97,7 +98,7 @@ class MLNN:
             """
         s1 = np.dot(W_1, X) + b_1
 
-        h1 = self.ReLU(s1) #1st hidden layer
+        h1 = self.ReLu(s1) #1st hidden layer
 
         P = self.SoftMax(np.dot(W_2, h1) + b_2)
 
@@ -155,16 +156,7 @@ class MLNN:
         _, _, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
         cross_entropy_loss = 0 - np.log(np.sum(np.prod((np.array(Y), P), axis=0), axis=0))
 
-
         return (1 / N) * np.sum(cross_entropy_loss) + regularization_term # J
-
-    def X_Positive(x):
-        above_zero_indices = x > 0
-        below_zero_indices = x <= 0
-        x[above_zero_indices] = 1
-        x[below_zero_indices] = 0
-
-        return x
 
     def ComputeGradients(self, X, Y, W_1, b_1, W_2, b_2, lamda):
         """
@@ -178,61 +170,81 @@ class MLNN:
                 lamda: regularization term
 
             Returns:
-                grad_W: gradient of the weight parameter
-                grad_b: gradient of the bias parameter
+                gradient_W1: gradient of the weight parameter
+                gradient_b1: gradient of the bias parameter
+                gradient_W2: gradient of the weight parameter
+                gradient_b2: gradient of the bias parameter
 
         """
 
-        grad_W1 = np.zeros(np.shape(W_1))
-        grad_b1 = np.zeros(np.shape(b_1))
-        grad_W2 = np.zeros(np.shape(W_2))
-        grad_b2 = np.zeros(np.shape(b_2))
+        gradient_W1 = np.zeros(np.shape(W_1))
+        gradient_b1 = np.zeros(np.shape(b_1))
+        gradient_W2 = np.zeros(np.shape(W_2))
+        gradient_b2 = np.zeros(np.shape(b_2))
 
+        # Forward Pass
         s1, h, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
 
+        # Backward Pass
         for i in range(np.shape(X)[1]):
             Y_i = Y[:, i].reshape((-1, 1))
-            Pi = P[:, i].reshape((-1, 1))
-            Xi = X[:, i].reshape((-1, 1))
-            hi = h[:, i].reshape((-1, 1))
-            si = s1[:, i]
+            P_i = P[:, i].reshape((-1, 1))
+            X_i = X[:, i].reshape((-1, 1))
+            hidden_i = h[:, i].reshape((-1, 1))
+            s_i = s1[:, i]
 
-            g = Pi - Y_i
-            grad_b2 = grad_b2 + g
-            grad_W2 = grad_W2 + np.dot(g, hi.T)
+            temp_g = P_i - Y_i
+            gradient_b2 = gradient_b2 + temp_g
+            gradient_W2 = gradient_W2 + np.dot(temp_g, hidden_i.T)
 
-            # backprop
-            g = np.dot(W_2.T, g)
-            g = np.dot(np.diag(self.IndXPositive(si)), g)
 
-            grad_b1 = grad_b1 + g
-            grad_W1 = grad_W1 + np.dot(g, Xi.T)
+            temp_g = np.dot(W_2.T, temp_g)
+            temp_g = np.dot(np.diag(list(map(lambda num: num > 0, s_i))), temp_g)
 
-        grad_b1 = np.divide(grad_b1, np.shape(X)[1])
-        grad_W1 = np.divide(grad_W1, np.shape(X)[1]) + 2 * lamda * W_1
 
-        grad_b2 = np.divide(grad_b2, np.shape(X)[1])
-        grad_W2 = np.divide(grad_W2, np.shape(X)[1]) + 2 * lamda * W_2
+            gradient_b1 = gradient_b1 + temp_g
+            gradient_W1 = gradient_W1 + np.dot(temp_g, X_i.T)
 
-        return grad_W1, grad_b1, grad_W2, grad_b2
+        gradient_b1 = np.divide(gradient_b1, np.shape(X)[1])
+        gradient_W1 = np.divide(gradient_W1, np.shape(X)[1]) + 2 * lamda * W_1
 
-        # grad_W = np.zeros(np.shape(W))
-        # grad_b = np.zeros(np.shape(b))
-        #
-        # P = self.EvaluateClassifier(X, W, b)
-        #
-        # N = np.shape(X)[1]
-        # for i in range(N):
-        #     Y_i = Y[:, i].reshape((-1, 1))
-        #     P_i = P[:, i].reshape((-1, 1))
-        #     g = - (Y_i - P_i)
-        #     grad_b = grad_b + g
-        #     grad_W = grad_W + g * X[:, i]
-        #
-        # grad_b = np.divide(grad_b, N)
-        # grad_W = np.divide(grad_W, N) + 2 * lamda * W
-        #
-        # return grad_W, grad_b
+        gradient_b2 = np.divide(gradient_b2, np.shape(X)[1])
+        gradient_W2 = np.divide(gradient_W2, np.shape(X)[1]) + 2 * lamda * W_2
+
+        return gradient_W1, gradient_b1, gradient_W2, gradient_b2
+
+
+    def ComputeGradsNumSlow(self, X, Y, W1, b1, W2, b2, lamda, h):
+        W = [W1, W2]
+        b = [b1, b2]
+
+        # initialize gradients
+        grad_W = []
+        grad_b = []
+
+        for i in range(len(W)):
+            Wnew = np.zeros(np.shape(W[i]))
+            grad_W.append(Wnew)
+            bnew = np.zeros(np.shape(b[i]))
+            grad_b.append(bnew)
+
+        cost = self.ComputeCost(X, Y, W[0], b[0], W[1], b[1], lamda)
+
+        for k in range(len(W)):
+            for i in range(len(b[k])):
+                b_try = deepcopy(b)
+                b_try[k][i] += h
+                cost2 = self.ComputeCost(X, Y, W[0], b_try[0], W[1], b_try[1], lamda)
+                grad_b[k][i] = (cost2 - cost) / h
+
+            for i in range(W[k].shape[0]):
+                for j in range(W[k].shape[1]):
+                    W_try = deepcopy(W)
+                    W_try[k][i, j] += h
+                    cost2 = self.ComputeCost(X, Y, W_try[0], b[0], W_try[1], b[1], lamda)
+                    grad_W[k][i, j] = (cost2 - cost) / h
+
+        return grad_W[0], grad_b[0], grad_W[1], grad_b[1]
 
     def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
@@ -246,10 +258,29 @@ class MLNN:
             Returns:
                 None
         """
+        grad_w1_numerical, grad_b1_numerical, grad_w2_numerical, grad_b2_numerical = \
+            self.ComputeGradsNumSlow(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda, 1e-5)
+        grad_w1_analytical, grad_b1_analytical, grad_w2_analytical, grad_b2_analytical = \
+            self.ComputeGradients(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda)
 
-        grad_b1_n, grad_b2_n, grad_w1_n, grad_w2_n = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
+        grad_w_vec = grad_w1_analytical.flatten()
+        grad_w_num_vec = grad_w1_numerical.flatten()
+        grad_b_vec = grad_b1_analytical.flatten()
+        grad_b_num_vec = grad_b1_numerical.flatten()
+        print("* W_1 gradients *")
+        print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
+        print("* Bias_1 gradients *")
+        print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
-        grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
+        grad_w_vec = grad_w2_analytical.flatten()
+        grad_w_num_vec = grad_w2_numerical.flatten()
+        grad_b_vec = grad_b2_analytical.flatten()
+        grad_b_num_vec = grad_b2_numerical.flatten()
+        print("* W_1 gradients *")
+        print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
+        print("* Bias_1 gradients *")
+        print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
+
 
     def MiniBatchGD(self, X, Y, y, GDparams, W, b, verbose=True):
         """
