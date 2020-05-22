@@ -90,16 +90,15 @@ class MLNN:
                 b_2: bias
 
             Returns:
-                Softmax matrix of output probabilities
+                p : a stable softmax matrix
+                h : intermediate ReLU values
             """
-        s1 = np.dot(W_1, X) + b_1
-        h = self.ReLU(s1)
-        s2 = np.dot(W_2, h) + b_2
-        P = self.SoftMax(s2)
+        h = self.ReLU(np.dot(W_1, X) + b_1)
+        P = self.SoftMax(np.dot(W_2, h) + b_2)
 
-        return P, h, s1
+        return P, h
 
-    def ComputeAccuracy(self, X, y, W, b):
+    def ComputeAccuracy(self, X, y, W_1, b_1, W_2, b_2):
         """
            Compute accuracy of network's predictions
 
@@ -113,20 +112,19 @@ class MLNN:
                 acc : Accuracy on provided sets
         """
 
+
         # calculate predictions
-        preds = np.argmax(self.EvaluateClassifier(X, W, b), axis=0)
+        P, h = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        preds = np.argmax(P, axis=0)
 
         # calculate num of correct predictions
-        num_correct = np.count_nonzero((y - preds) == 0)
+        correct = np.count_nonzero((y - preds) == 0)
 
         all = np.size(preds)
-
-        if all != 0:
-            acc = num_correct / all
-        else:
+        if all == 0:
             raise (ZeroDivisionError("Zero Division Error!"))
 
-        return acc
+        return correct / all
 
     def ComputeCost(self, X, Y, W_1, b_1, W_2, b_2, lamda):
         """
@@ -185,7 +183,7 @@ class MLNN:
         grad_W2 = np.zeros(np.shape(W_2))
         grad_b2 = np.zeros(np.shape(b_2))
 
-        P, h, s1 = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        P, h = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
 
         N = np.shape(X)[1]
         for i in range(N):
@@ -232,38 +230,6 @@ class MLNN:
         #
         # return grad_W, grad_b
 
-    def ComputeGradsNumSlow(X, Y, W1, b1, W2, b2, lamb, h):
-        W = [W1, W2]
-        b = [b1, b2]
-
-        # initialize grads
-        grad_W = []
-        grad_b = []
-
-        for i in range(len(W)):
-            Wnew = np.zeros(np.shape(W[i]))
-            grad_W.append(Wnew)
-            bnew = np.zeros(np.shape(b[i]))
-            grad_b.append(bnew)
-
-        c = self.ComputeCost(X, Y, W[0], b[0], W[1], b[1], lamb)
-
-        for k in range(len(W)):
-            for i in range(len(b[k])):
-                b_try = deepcopy(b)
-                b_try[k][i] += h
-                c2 = self.ComputeCost(X, Y, W[0], b_try[0], W[1], b_try[1], lamb)
-                grad_b[k][i] = (c2 - c) / h
-
-            for i in range(W[k].shape[0]):
-                for j in range(W[k].shape[1]):
-                    W_try = deepcopy(W)
-                    W_try[k][i, j] += h
-                    c2 = self.ComputeCost(X, Y, W_try[0], b[0], W_try[1], b[1], lamb)
-                    grad_W[k][i, j] = (c2 - c) / h
-
-        return grad_W[0], grad_b[0], grad_W[1], grad_b[1]
-
     def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
             Checks analytically computed gradients against numerically computed to compute error
@@ -280,15 +246,6 @@ class MLNN:
         grad_b1_n, grad_b2_n, grad_w1_n, grad_w2_n = self.ComputeGradsNumSlow(X, Y, P, self.W, self.b, lamda, .000001)
 
         grad_b, grad_w = self.ComputeGradients(X, Y, self.W, self.b, lamda)
-
-        grad_w_vec = grad_w.flatten()
-        grad_w_num_vec = grad_w_num.flatten()
-        grad_b_vec = grad_b.flatten()
-        grad_b_num_vec = grad_b_num.flatten()
-        print("* W gradients *")
-        print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
-        print("* Bias gradients *")
-        print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
     def MiniBatchGD(self, X, Y, y, GDparams, W, b, verbose=True):
         """
