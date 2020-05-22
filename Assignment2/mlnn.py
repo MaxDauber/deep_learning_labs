@@ -90,13 +90,18 @@ class MLNN:
                 b_2: bias
 
             Returns:
+                s1: s node in computational graph
                 p : a stable softmax matrix
-                h : intermediate ReLU values
-            """
-        h = self.ReLU(np.dot(W_1, X) + b_1)
-        P = self.SoftMax(np.dot(W_2, h) + b_2)
+                h1 : intermediate ReLU values
 
-        return P, h
+            """
+        s1 = np.dot(W_1, X) + b_1
+
+        h1 = self.ReLU(s1) #1st hidden layer
+
+        P = self.SoftMax(np.dot(W_2, h1) + b_2)
+
+        return s1, h1, P
 
     def ComputeAccuracy(self, X, y, W_1, b_1, W_2, b_2):
         """
@@ -147,7 +152,7 @@ class MLNN:
         regularization_term = lamda * (np.sum(np.power(W_1, 2)) + np.sum(np.power(W_2, 2)))
 
         # cross-entropy loss term
-        P, _, _ = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        _, _, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
         cross_entropy_loss = 0 - np.log(np.sum(np.prod((np.array(Y), P), axis=0), axis=0))
 
 
@@ -183,32 +188,31 @@ class MLNN:
         grad_W2 = np.zeros(np.shape(W_2))
         grad_b2 = np.zeros(np.shape(b_2))
 
-        P, h = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        s1, h, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
 
-        N = np.shape(X)[1]
-        for i in range(N):
-            Yi = Y[:, i].reshape((-1, 1))
+        for i in range(np.shape(X)[1]):
+            Y_i = Y[:, i].reshape((-1, 1))
             Pi = P[:, i].reshape((-1, 1))
             Xi = X[:, i].reshape((-1, 1))
             hi = h[:, i].reshape((-1, 1))
             si = s1[:, i]
 
-            g = Pi - Yi
+            g = Pi - Y_i
             grad_b2 = grad_b2 + g
-            grad_W2 = grad_W2 + np.dot(g, np.transpose(hi))
+            grad_W2 = grad_W2 + np.dot(g, hi.T)
 
-            # propagate error backwards
-            g = np.dot(np.transpose(W_2), g)
-            g = np.dot(np.diag(self.X_Positive(si)), g)
+            # backprop
+            g = np.dot(W_2.T, g)
+            g = np.dot(np.diag(self.IndXPositive(si)), g)
 
             grad_b1 = grad_b1 + g
-            grad_W1 = grad_W1 + np.dot(g, np.transpose(Xi))
+            grad_W1 = grad_W1 + np.dot(g, Xi.T)
 
-        grad_b1 = np.divide(grad_b1, N)
-        grad_W1 = np.divide(grad_W1, N) + 2 * lamda * W_1
+        grad_b1 = np.divide(grad_b1, np.shape(X)[1])
+        grad_W1 = np.divide(grad_W1, np.shape(X)[1]) + 2 * lamda * W_1
 
-        grad_b2 = np.divide(grad_b2, N)
-        grad_W2 = np.divide(grad_W2, N) + 2 * lamda * W2
+        grad_b2 = np.divide(grad_b2, np.shape(X)[1])
+        grad_W2 = np.divide(grad_W2, np.shape(X)[1]) + 2 * lamda * W_2
 
         return grad_W1, grad_b1, grad_W2, grad_b2
 
