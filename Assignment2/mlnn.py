@@ -106,16 +106,18 @@ class MLNN:
 
     def ComputeAccuracy(self, X, y, W_1, b_1, W_2, b_2):
         """
-           Compute accuracy of network's predictions
+           Computes accuracy of network's predictions
 
             Args:
                 X: data matrix
                 y: ground truth labels
-                W: weights
-                b: bias
+                W_1: weights
+                b_1: bias
+                W_2: weights
+                b_2: bias
 
             Returns:
-                acc : Accuracy on provided sets
+                Accuracy on provided sets
         """
 
 
@@ -160,7 +162,7 @@ class MLNN:
 
     def ComputeGradients(self, X, Y, W_1, b_1, W_2, b_2, lamda):
         """
-            Computes the gradients of the weight and bias parameters
+            Computes the gradients of the weight and bias parameters using analytical method
 
             Args:
                 X: data batch matrix
@@ -215,6 +217,23 @@ class MLNN:
 
 
     def ComputeGradsNumSlow(self, X, Y, W1, b1, W2, b2, lamda, h):
+        """
+            Computes the gradients of the weight and bias parameters using numerical computation method
+
+            Args:
+                X: data batch matrix
+                Y: one-hot-encoding labels batch vector
+                P: evaluated classifier for the batch
+                W: weights
+                lamda: regularization term
+
+            Returns:
+                gradient_W1: gradient of the weight parameter
+                gradient_b1: gradient of the bias parameter
+                gradient_W2: gradient of the weight parameter
+                gradient_b2: gradient of the bias parameter
+        """
+
         W = [W1, W2]
         b = [b1, b2]
 
@@ -223,10 +242,8 @@ class MLNN:
         grad_b = []
 
         for i in range(len(W)):
-            Wnew = np.zeros(np.shape(W[i]))
-            grad_W.append(Wnew)
-            bnew = np.zeros(np.shape(b[i]))
-            grad_b.append(bnew)
+            grad_W.append(np.zeros(np.shape(W[i])))
+            grad_b.append(np.zeros(np.shape(b[i])))
 
         cost = self.ComputeCost(X, Y, W[0], b[0], W[1], b[1], lamda)
 
@@ -248,7 +265,7 @@ class MLNN:
 
     def CheckGradients(self, X, Y, lamda=0, method="fast"):
         """
-            Checks analytically computed gradients against numerically computed to compute error
+            Checks analytically computed gradients against numerically computed to determine margin of error
 
             Args:
                 X: data batch matrix
@@ -318,8 +335,6 @@ class MLNN:
                 W = W - GDparams.eta * grad_w
                 b = b - GDparams.eta * grad_b
             if verbose:
-                # Y_pred_train = self.EvaluateClassifier(X, W, b)
-                # Y_pred_val = self.EvaluateClassifier(self.X_validation, W, b)
                 training_cost = self.ComputeCost(X, Y, W, b, GDparams.lamda)
                 training_accuracy = self.ComputeAccuracy(X, y, W, b)
                 validation_cost = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
