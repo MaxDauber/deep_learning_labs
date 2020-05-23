@@ -5,6 +5,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from copy import deepcopy
+from tqdm import tqdm
 
 class MLNN:
     """
@@ -122,7 +123,7 @@ class MLNN:
 
 
         # calculate predictions
-        P, h = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
+        _, _, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
         preds = np.argmax(P, axis=0)
 
         # calculate num of correct predictions
@@ -299,7 +300,7 @@ class MLNN:
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
 
-    def MiniBatchGD(self, X, Y, y, GDparams, W, b, verbose=True):
+    def MiniBatchGD(self, X, Y, y, GDparams, verbose=True, cyclic=True):
         """
             Trains OLNN using mini-batch gradient descent
 
@@ -322,23 +323,32 @@ class MLNN:
         self.history_training_accuracy = []
         self.history_validation_accuracy = []
 
+        lr = GDparams.lr
+
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
 
+        # for epoch in tqdm(range(GDparams.n_epochs)):
         for epoch in range(GDparams.n_epochs):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
                 end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_w, grad_b = self.ComputeGradients(X_batch, Y_batch, W, b, GDparams.lamda)
-                W = W - GDparams.eta * grad_w
-                b = b - GDparams.eta * grad_b
+                grad_w1, grad_b1, grad_w2, grad_b2 = \
+                    self.ComputeGradients(X_batch, Y_batch, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                self.W_1 = self.W_1 - lr * grad_w1
+                self.b_1 = self.b_1 - lr * grad_b1
+                self.W_2 = self.W_2 - lr * grad_w2
+                self.b_2 = self.b_2 - lr * grad_b2
+
             if verbose:
-                training_cost = self.ComputeCost(X, Y, W, b, GDparams.lamda)
-                training_accuracy = self.ComputeAccuracy(X, y, W, b)
-                validation_cost = self.ComputeCost(self.X_validation, self.Y_validation, W, b, GDparams.lamda)
-                validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation, W, b)
+                training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                training_accuracy = self.ComputeAccuracy(X, y, self.W_1, self.b_1, self.W_2, self.b_2)
+                validation_cost = self.ComputeCost(self.X_validation, self.Y_validation,
+                                                   self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
+                                                           self.W_1, self.b_1, self.W_2, self.b_2)
 
                 self.history_training_cost.append(training_cost)
                 self.history_training_accuracy.append(training_accuracy)
@@ -351,7 +361,7 @@ class MLNN:
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
         print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
-        self.ShowWeights(W, GDparams)
+        # self.ShowWeights(W, GDparams)
 
     def GeneratePlots(self):
         x = list(range(1, len(self.history_training_cost) + 1))
@@ -394,12 +404,12 @@ class GDparams:
 
     """
 
-    def __init__(self, n_batch, eta, n_epochs, lamda):
+    def __init__(self, n_batch, lr, n_epochs, lamda):
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
         # eta: Learning rate
-        self.eta = eta
+        self.lr = lr
 
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs

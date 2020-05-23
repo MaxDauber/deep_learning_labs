@@ -92,26 +92,26 @@ if __name__ == '__main__':
 
     # Check Gradient Code is Correct
 
-    # Test with subset
-    neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
-    neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
-
-    # Test with entire network
-    neural_net = MLNN(data, X_train, Y_train)
-    neural_net.CheckGradients(X_train, Y_train)
+    # # Test with subset
+    # neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
+    # neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
+    #
+    # # Test with entire network
+    # neural_net = MLNN(data, X_train, Y_train)
+    # neural_net.CheckGradients(X_train, Y_train)
 
     # Test Neural Network is Running
-    # neural_net = OLNN(data, X_train, Y_train)
-    # params = GDparams(n_batch = 100, eta = 0.001, n_epochs = 20, lamda = 0)
-    # neural_net.MiniBatchGD(X_train, Y_train, y_train, params, neural_net.W, neural_net.b)
+    neural_net = MLNN(data, X_train, Y_train)
+    params = GDparams(n_batch = 100, lr = 0.001, n_epochs = 20, lamda = 0)
+    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
 
     # Run training for all parameter Settings
     # lamdas = [0, 0, .1, 1]
     # etas = [.1, .001, .001, .001]
     # for iter in range(4):
     #     neural_net = MLNN(data, X_train, Y_train)
-    #     params = GDparams(n_batch=100, eta=etas[iter], n_epochs=40, lamda = lamdas[iter])
-    #     print("MiniBatch Training with n_batch=100, n_epochs=40, eta=", etas[iter], ", lamda=", lamdas[iter])
+    #     params = GDparams(n_batch=100, lr=etas[iter], n_epochs=40, lamda = lamdas[iter])
+    #     print("MiniBatch Training with n_batch=100, n_epochs=40, lr=", etas[iter], ", lamda=", lamdas[iter])
     #     neural_net.MiniBatchGD(X_train, Y_train, y_train, params, neural_net.W, neural_net.b)
     #     GeneratePlots(neural_net, params)
 
