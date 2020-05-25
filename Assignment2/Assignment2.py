@@ -48,7 +48,7 @@ def GeneratePlots(neural_net, params):
     x = list(range(1, len(neural_net.history_training_cost) + 1))
     plt.plot(x, neural_net.history_training_cost, label="Training Loss")
     plt.plot(x, neural_net.history_validation_cost, label="Validation Loss")
-    plt.title("Loss over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+    plt.title("Loss over epochs for n_batch=100, n_epochs=40, eta=" + str(params.lr) + ", lamda=" + str(params.lamda))
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.xticks([0, 10, 20, 30, 40])
@@ -58,7 +58,7 @@ def GeneratePlots(neural_net, params):
 
     plt.plot(x, neural_net.history_training_accuracy, label="Training Accuracy")
     plt.plot(x, neural_net.history_validation_accuracy, label="Validation Accuracy")
-    plt.title("Accuracy over epochs for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
+    plt.title("Accuracy over epochs for n_batch=100, n_epochs=40, eta=" + str(params.lr) + ", lamda=" + str(params.lamda))
     plt.xlabel("Epochs")
     plt.ylabel("Accuracy")
     plt.xticks([0, 10, 20, 30, 40])
@@ -73,7 +73,7 @@ def save_as_mat(data, name="model"):
 
 
 if __name__ == '__main__':
-    np.random.seed(7)
+    np.random.seed(3274619)
     X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
     X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
     X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
@@ -100,10 +100,20 @@ if __name__ == '__main__':
     # neural_net = MLNN(data, X_train, Y_train)
     # neural_net.CheckGradients(X_train, Y_train)
 
+    # Sanity check of network on 100 examples to check overfitting and low loss
+    # neural_net = MLNN(data, X_train[:, :100], Y_train[:, :100])
+    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=False, n_epochs=200, lamda=0)
+    # neural_net.MiniBatchGD(X_train[:, :100], Y_train[:, :100], y_train[:100], params)
+
     # Test Neural Network is Running
     neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch = 100, lr = 0.001, n_epochs = 20, lamda = 0)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=3, lamda=0)
     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
+    GeneratePlots(neural_net, params)
+    neural_net = MLNN(data, X_train, Y_train)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=3, lamda=0)
+    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
+    GeneratePlots(neural_net, params)
 
     # Run training for all parameter Settings
     # lamdas = [0, 0, .1, 1]

@@ -25,8 +25,8 @@ class MLNN:
             "epochs": 40,  # number of epochs
             "hidden_size": 50,  # number of nodes in the hidden layer
             "h_param": 1e-6,  # parameter h for numerical grad check
-            "lr_max": 1e-1,  # maximum for cyclical learning rate
-            "lr_min": 1e-5  # minimum for cyclical learning rate
+            "lr_max": 1e-1,  # default maximum for cyclical learning rate
+            "lr_min": 1e-5  # default minimum for cyclical learning rate
         }
 
         for var, default in var_defaults.items():
@@ -300,7 +300,7 @@ class MLNN:
         print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
 
 
-    def MiniBatchGD(self, X, Y, y, GDparams, verbose=True, cyclic=True):
+    def MiniBatchGD(self, X, Y, y, GDparams, verbose=True):
         """
             Trains OLNN using mini-batch gradient descent
 
@@ -324,6 +324,7 @@ class MLNN:
         self.history_validation_accuracy = []
 
         lr = GDparams.lr
+        t = 0
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
@@ -341,6 +342,19 @@ class MLNN:
                 self.b_1 = self.b_1 - lr * grad_b1
                 self.W_2 = self.W_2 - lr * grad_w2
                 self.b_2 = self.b_2 - lr * grad_b2
+
+                # implementing cyclic learning rate
+                if(GDparams.cyclic):
+                    if t <= GDparams.n_s:
+                        lr = GDparams.lr_min + t / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
+
+                    elif t <= 2 * GDparams.n_s:
+                        lr = GDparams.lr_max - (t - GDparams.n_s) / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
+                    t = (t + 1) % (2 * GDparams.n_s)
+                    # if epoch % 2 == 0:
+                    #     lr = (GDparams.lr_max - GDparams.lr_min) * step / GDparams.n_batch + GDparams.lr_min
+                    # else:
+                    #     lr = (GDparams.lr_min - GDparams.lr_max) * step / GDparams.n_batch + GDparams.lr_max
 
             if verbose:
                 training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
@@ -360,10 +374,10 @@ class MLNN:
                       " | Train cost: ", "{:.10f}".format(training_cost),
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
-        print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
+        # print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
         # self.ShowWeights(W, GDparams)
 
-    def GeneratePlots(self):
+    def GenerateCyclicPlots(self):
         x = list(range(1, len(self.history_training_cost) + 1))
         plt.plot(x, self.history_training_cost, label="Training Loss")
         plt.plot(x, self.history_validation_cost, label="Validation Loss")
@@ -404,15 +418,23 @@ class GDparams:
 
     """
 
-    def __init__(self, n_batch, lr, n_epochs, lamda):
+    def __init__(self, n_batch, lr, lr_max, lr_min, n_s, cyclic, n_epochs, lamda):
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
         # eta: Learning rate
         self.lr = lr
 
+        # min/max for cyclical learning rate
+        self.lr_max = lr_max
+        self.lr_min = lr_min
+
+        self.n_s = n_s
+        self.cyclic = cyclic
+
         # n_epochs: Maximum number of learning epochs.
         self.n_epochs = n_epochs
 
         # lamda: regularization term used for the gradient descent
         self.lamda = lamda
+
