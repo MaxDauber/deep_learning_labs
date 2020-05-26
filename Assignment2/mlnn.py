@@ -325,11 +325,7 @@ class MLNN:
         self.history_validation_accuracy = []
 
         # history for cyclic training
-        self.history_training_cost_cyclic = []
-        self.history_validation_cost_cyclic = []
-        self.history_training_accuracy_cyclic = []
-        self.history_validation_accuracy_cyclic = []
-        self.history_lr = []
+        self.history_update = []
 
 
         if GDparams.cyclic:
@@ -340,7 +336,7 @@ class MLNN:
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
-
+        update_step = 0
         # for epoch in tqdm(range(GDparams.n_epochs)):
         for epoch in range(GDparams.n_epochs):
             for step in range(num_batches):
@@ -354,6 +350,7 @@ class MLNN:
                 self.b_1 = self.b_1 - lr * grad_b1
                 self.W_2 = self.W_2 - lr * grad_w2
                 self.b_2 = self.b_2 - lr * grad_b2
+                update_step += 1
 
                 # implementing cyclic learning rate
                 if GDparams.cyclic:
@@ -363,20 +360,7 @@ class MLNN:
                         lr = GDparams.lr_max - (t - GDparams.n_s) / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
                     t = (t + 1) % (2 * GDparams.n_s)
 
-                    if step % 10:
-                        # record data for graphing
-                        training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
-                        training_accuracy = self.ComputeAccuracy(X, y, self.W_1, self.b_1, self.W_2, self.b_2)
-                        validation_cost = self.ComputeCost(self.X_validation, self.Y_validation,
-                                                           self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
-                        validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
-                                                                   self.W_1, self.b_1, self.W_2, self.b_2)
 
-                        self.history_training_cost_cyclic.append(training_cost)
-                        self.history_training_accuracy_cyclic.append(training_accuracy)
-                        self.history_validation_cost_cyclic.append(validation_cost)
-                        self.history_validation_accuracy_cyclic.append(validation_accuracy)
-                        self.history_lr.append(lr)
 
 
 
@@ -387,6 +371,9 @@ class MLNN:
                                                    self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
                 validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
                                                            self.W_1, self.b_1, self.W_2, self.b_2)
+
+                if GDparams.cyclic :
+                    self.history_update.append(update_step)
 
                 self.history_training_cost.append(training_cost)
                 self.history_training_accuracy.append(training_accuracy)
