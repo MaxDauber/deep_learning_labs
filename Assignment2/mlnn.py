@@ -318,13 +318,25 @@ class MLNN:
             validation_accuracy   (float): the accuracy on the validation set
             acc_test  (float): the accuracy on the testing set
         """
+        # histories for top level training metrics
         self.history_training_cost = []
         self.history_validation_cost = []
         self.history_training_accuracy = []
         self.history_validation_accuracy = []
 
-        lr = GDparams.lr
-        t = 0
+        # history for cyclic training
+        self.history_training_cost_cyclic = []
+        self.history_validation_cost_cyclic = []
+        self.history_training_accuracy_cyclic = []
+        self.history_validation_accuracy_cyclic = []
+        self.history_lr = []
+
+
+        if GDparams.cyclic:
+            lr = GDparams.lr_min
+            t = 0
+        else:
+            lr = GDparams.lr
 
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
@@ -344,17 +356,29 @@ class MLNN:
                 self.b_2 = self.b_2 - lr * grad_b2
 
                 # implementing cyclic learning rate
-                if(GDparams.cyclic):
+                if GDparams.cyclic:
                     if t <= GDparams.n_s:
                         lr = GDparams.lr_min + t / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
-
                     elif t <= 2 * GDparams.n_s:
                         lr = GDparams.lr_max - (t - GDparams.n_s) / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
                     t = (t + 1) % (2 * GDparams.n_s)
-                    # if epoch % 2 == 0:
-                    #     lr = (GDparams.lr_max - GDparams.lr_min) * step / GDparams.n_batch + GDparams.lr_min
-                    # else:
-                    #     lr = (GDparams.lr_min - GDparams.lr_max) * step / GDparams.n_batch + GDparams.lr_max
+
+                    if step % 10:
+                        # record data for graphing
+                        training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                        training_accuracy = self.ComputeAccuracy(X, y, self.W_1, self.b_1, self.W_2, self.b_2)
+                        validation_cost = self.ComputeCost(self.X_validation, self.Y_validation,
+                                                           self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                        validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
+                                                                   self.W_1, self.b_1, self.W_2, self.b_2)
+
+                        self.history_training_cost_cyclic.append(training_cost)
+                        self.history_training_accuracy_cyclic.append(training_accuracy)
+                        self.history_validation_cost_cyclic.append(validation_cost)
+                        self.history_validation_accuracy_cyclic.append(validation_accuracy)
+                        self.history_lr.append(lr)
+
+
 
             if verbose:
                 training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
@@ -374,25 +398,8 @@ class MLNN:
                       " | Train cost: ", "{:.10f}".format(training_cost),
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
-        # print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, W, b))
+        print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, self.W_1, self.b_1, self.W_2, self.b_2))
         # self.ShowWeights(W, GDparams)
-
-    def GenerateCyclicPlots(self):
-        x = list(range(1, len(self.history_training_cost) + 1))
-        plt.plot(x, self.history_training_cost, label="Training Loss")
-        plt.plot(x, self.history_validation_cost, label="Validation Loss")
-        plt.title("Loss over epochs for ")
-        plt.xlabel("Epochs")
-        plt.ylabel("Loss")
-        plt.legend()
-        plt.show()
-        plt.plot(x, self.history_training_accuracy, label="Training Accuracy")
-        plt.plot(x, self.history_validation_accuracy, label="Validation Accuracy")
-        plt.title("Accuracy over epochs")
-        plt.xlabel("Epochs")
-        plt.ylabel("Accuracy")
-        plt.legend()
-        plt.show()
 
     def ShowWeights(self, W, params):
         """ Display the image for each label in W """

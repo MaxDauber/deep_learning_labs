@@ -66,6 +66,44 @@ def GeneratePlots(neural_net, params):
     plt.savefig("Plots/accuracy_eta=" + str(params.eta) + "_lamda=" + str(params.lamda) + ".png", bbox_inches="tight")
     plt.show()
 
+def GeneratePlots(neural_net, params):
+    x = list(range(1, len(neural_net.history_training_cost) + 1))
+    plt.plot(x, neural_net.history_training_cost, label="Training Loss")
+    plt.plot(x, neural_net.history_validation_cost, label="Validation Loss")
+    plt.title("Loss over epochs for n_batch=100, n_epochs=40, eta=" + str(params.lr) + ", lamda=" + str(params.lamda))
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.savefig("Plots/loss_eta=" + str(params.eta) + "_lamda=" + str(params.lamda) + ".png", bbox_inches="tight")
+    plt.show()
+
+    plt.plot(x, neural_net.history_training_accuracy, label="Training Accuracy")
+    plt.plot(x, neural_net.history_validation_accuracy, label="Validation Accuracy")
+    plt.title("Accuracy over epochs for n_batch=100, n_epochs=40, eta=" + str(params.lr) + ", lamda=" + str(params.lamda))
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig("Plots/accuracy_eta=" + str(params.eta) + "_lamda=" + str(params.lamda) + ".png", bbox_inches="tight")
+    plt.show()
+
+def GenerateCyclicPlots(neural_net, params):
+    x = list(range(1, len(neural_net.history_training_cost_cyclic) + 1))
+    plt.plot(x, neural_net.history_training_cost_cyclic, label="Training Loss")
+    plt.plot(x, neural_net.history_validation_cost_cyclic, label="Validation Loss")
+    plt.title("Loss over iterations")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
+    plt.show()
+    plt.plot(x, neural_net.history_training_accuracy_cyclic, label="Training Accuracy")
+    plt.plot(x, neural_net.history_validation_accuracy_cyclic, label="Validation Accuracy")
+    plt.title("Accuracy over iterations")
+    plt.xlabel("Epochs")
+    plt.ylabel("Accuracy")
+    plt.legend()
+    plt.savefig("Plots/accuracy_cyclic_.png", bbox_inches="tight")
+    plt.show()
+
 def save_as_mat(data, name="model"):
     """ Used to transfer a python model to matlab """
     # import scipy.io as sio
@@ -107,13 +145,13 @@ if __name__ == '__main__':
 
     # Test Neural Network is Running
     neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=3, lamda=0)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=10, lamda=0)
     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    GeneratePlots(neural_net, params)
+    # GeneratePlots(neural_net, params)
     neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=3, lamda=0)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=10, lamda=0)
     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    GeneratePlots(neural_net, params)
+    # GeneratePlots(neural_net, params)
 
     # Run training for all parameter Settings
     # lamdas = [0, 0, .1, 1]
