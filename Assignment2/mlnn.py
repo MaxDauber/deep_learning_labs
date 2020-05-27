@@ -39,6 +39,8 @@ class MLNN:
         self.K = targets.shape[0]
         self.m = self.hidden_size #nodes in hidden layer
         self.W_1, self.b_1, self.W_2, self.b_2 = self.InitializeWeightsBias()
+        self.test_accuracy = 0
+        self.test_cost = 0
 
     def InitializeWeightsBias(self):
         """
@@ -217,7 +219,7 @@ class MLNN:
         return gradient_W1, gradient_b1, gradient_W2, gradient_b2
 
 
-    def ComputeGradsNumSlow(self, X, Y, W1, b1, W2, b2, lamda, h):
+    def ComputeGradsNum(self, X, Y, W1, b1, W2, b2, lamda, h):
         """
             Computes the gradients of the weight and bias parameters using numerical computation method
 
@@ -277,7 +279,7 @@ class MLNN:
                 None
         """
         grad_w1_numerical, grad_b1_numerical, grad_w2_numerical, grad_b2_numerical = \
-            self.ComputeGradsNumSlow(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda, 1e-5)
+            self.ComputeGradsNum(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda, 1e-5)
         grad_w1_analytical, grad_b1_analytical, grad_w2_analytical, grad_b2_analytical = \
             self.ComputeGradients(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda)
 
@@ -385,7 +387,12 @@ class MLNN:
                       " | Train cost: ", "{:.10f}".format(training_cost),
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
-        print("Test Accuracy: ", self.ComputeAccuracy(self.X_test, self.y_test, self.W_1, self.b_1, self.W_2, self.b_2))
+
+        self.test_accuracy = self.ComputeAccuracy(self.X_test, self.y_test, self.W_1, self.b_1, self.W_2, self.b_2)
+        self.test_cost = self.ComputeCost(self.X_test, self.Y_test, self.W_1, self.b_1, self.W_2, self.b_2,
+                                          GDparams.lamda)
+        print("Test Accuracy: ", self.test_accuracy)
+        print("Test Cost: ", self.test_cost)
         # self.ShowWeights(W, GDparams)
 
     def ShowWeights(self, W, params):
