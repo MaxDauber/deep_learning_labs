@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # author: Max Dauber  dauber@kth.se
 """
-This is the main file of Assignment 1 for DD2424 Deep Learning
-This assignment implements a one-layer neural network.
+This is the main file of Assignment 2 for DD2424 Deep Learning
+This assignment implements a two-layer neural network.
 """
 
 
