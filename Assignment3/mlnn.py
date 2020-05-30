@@ -112,13 +112,17 @@ class MLNN:
                 h1 : intermediate ReLU values
 
             """
-        s1 = np.dot(W, X) + b
 
-        h1 = self.ReLu(s1) #1st hidden layer
+        h = [X]
+        s = []
+        for idx in range(len(W)):
+            s_idx = np.dot(W[idx], h[-1]) + b[idx]
+            s.append(s_idx)
+            h.append(self.ReLu(s_idx))
+        P = self.SoftMax(s[-1])
+        h.pop(0)
 
-        P = self.SoftMax(np.dot(W, h1) + b)
-
-        return s1, h1, P
+        return s, h, P
 
     def ComputeAccuracy(self, X, y, W_1, b_1, W_2, b_2):
         """
