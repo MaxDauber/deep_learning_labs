@@ -140,9 +140,9 @@ if __name__ == '__main__':
     neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
     neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
 
-    # Test with entire network ---------------------------------------------------------------------------------------
-    neural_net = MLNN(data, X_train, Y_train)
-    neural_net.CheckGradients(X_train, Y_train)
+    # # Test with entire network ---------------------------------------------------------------------------------------
+    # neural_net = MLNN(data, X_train, Y_train)
+    # neural_net.CheckGradients(X_train, Y_train)
 
     # Sanity check of network on 100 examples to check overfitting and low loss ----------------------------------------
     # neural_net = MLNN(data, X_train[:, :100], Y_train[:, :100])
