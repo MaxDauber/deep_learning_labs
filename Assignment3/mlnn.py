@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 class MLNN:
     """
-    MLNN - Multi Layer Neural Net
+    MLNN - Multi Layer Neural Net (2+)
     """
 
     def __init__(self, extracted, data, targets, **kwargs):
@@ -23,7 +23,6 @@ class MLNN:
             "lamda": 0,  # regularization parameter
             "batch_size": 100,  # batch size
             "epochs": 40,  # number of epochs
-            "hidden_size": 50,  # number of nodes in the hidden layer
             "h_param": 1e-6,  # parameter h for numerical grad check
             "lr_max": 1e-1,  # default maximum for cyclical learning rate
             "lr_min": 1e-5  # default minimum for cyclical learning rate
@@ -34,13 +33,15 @@ class MLNN:
         for k, v in extracted.items():
             setattr(self, k, v)
 
+        self.hidden_sizes = [50, 50]
         self.d = data.shape[0]
         self.n = data.shape[1]
         self.K = targets.shape[0]
-        self.m = self.hidden_size #nodes in hidden layer
-        self.W_1, self.b_1, self.W_2, self.b_2 = self.InitializeWeightsBias()
+        self.W, self.b = self.InitializeWeightsBias()
         self.test_accuracy = 0
         self.test_cost = 0
+
+
 
     def InitializeWeightsBias(self):
         """
@@ -50,15 +51,13 @@ class MLNN:
                 None
 
             Returns:
-                b 1/2 = bias
-                W 1/2 = weights
+                b = bias
+                W = weights for k layers
         """
 
-        W_1 = np.random.normal(self.mean_weights, self.var_weights, (self.m, self.d))
-        W_2 = np.random.normal(self.mean_weights, self.var_weights, (self.K, self.m))
-        b_1 = np.random.normal(self.mean_weights, self.var_weights, (self.m, 1))
-        b_2 = np.random.normal(self.mean_weights, self.var_weights, (self.K, 1))
-        return W_1, b_1, W_2, b_2
+        W = np.random.normal(self.mean_weights, self.var_weights, (self.m, self.d))
+        b = np.random.normal(self.mean_weights, self.var_weights, (self.m, 1))
+        return W, b
 
     def SoftMax(self, X):
         """
@@ -82,16 +81,23 @@ class MLNN:
         """
         return np.maximum(x, 0)
 
-    def EvaluateClassifier(self, X, W_1, b_1, W_2, b_2):
+    def LeakyReLu(self, x):
+        """Computes ReLU activation
+        Args:
+            x: input matrix
+        Returns:
+            x : relu matrix
+        """
+        return np.maximum(x, 0.01*x)
+
+    def EvaluateClassifier(self, X, W, b):
         """
             Output stable softmax probabilities of the classifier
 
             Args:
                 X: data matrix
-                W_1: weights
-                b_1: bias
-                W_2: weights
-                b_2: bias
+                W: weights
+                b: bias
 
             Returns:
                 s1: s node in computational graph
@@ -99,11 +105,11 @@ class MLNN:
                 h1 : intermediate ReLU values
 
             """
-        s1 = np.dot(W_1, X) + b_1
+        s1 = np.dot(W, X) + b
 
         h1 = self.ReLu(s1) #1st hidden layer
 
-        P = self.SoftMax(np.dot(W_2, h1) + b_2)
+        P = self.SoftMax(np.dot(W, h1) + b)
 
         return s1, h1, P
 

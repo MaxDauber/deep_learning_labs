@@ -136,65 +136,65 @@ if __name__ == '__main__':
     }
 
     # Check Gradient Code is Correct -----------------------------------------------------------------------------------
-    # # Test with subset
-    # neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
-    # neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
-    #
-    # # Test with entire network ---------------------------------------------------------------------------------------
-    # neural_net = MLNN(data, X_train, Y_train)
-    # neural_net.CheckGradients(X_train, Y_train)
+    # Test with subset
+    neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
+    neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
+
+    # Test with entire network ---------------------------------------------------------------------------------------
+    neural_net = MLNN(data, X_train, Y_train)
+    neural_net.CheckGradients(X_train, Y_train)
 
     # Sanity check of network on 100 examples to check overfitting and low loss ----------------------------------------
     # neural_net = MLNN(data, X_train[:, :100], Y_train[:, :100])
     # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=False, n_epochs=200, lamda=0)
     # neural_net.MiniBatchGD(X_train[:, :100], Y_train[:, :100], y_train[:100], params)
 
-    # Test Neural Network is Running -----------------------------------------------------------------------------------
-    neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=10, lamda=0.01)
-    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # GeneratePlots(neural_net, params)
-    GenerateCyclicPlots(neural_net, params)
+    # # Test Neural Network is Running -----------------------------------------------------------------------------------
+    # neural_net = MLNN(data, X_train, Y_train)
+    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=10, lamda=0.01)
+    # neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
+    # # GeneratePlots(neural_net, params)
+    # GenerateCyclicPlots(neural_net, params)
+    #
+    # neural_net = MLNN(data, X_train, Y_train)
+    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=50, lamda=0.01)
+    # neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
+    # # GeneratePlots(neural_net, params)
+    # GenerateCyclicPlots(neural_net, params)
 
-    neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=50, lamda=0.01)
-    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # GeneratePlots(neural_net, params)
-    GenerateCyclicPlots(neural_net, params)
+    # # Training Lambda Search -------------------------------------------------------------------------------------------
+    # X_train1, Y_train1, y_train1 = LoadBatch("datasets/cifar-10-batches-py/data_batch_1")
+    # X_train2, Y_train2, y_train2 = LoadBatch("datasets/cifar-10-batches-py/data_batch_2")
+    # X_train3, Y_train3, y_train3 = LoadBatch("datasets/cifar-10-batches-py/data_batch_3")
+    # X_train4, Y_train4, y_train4 = LoadBatch("datasets/cifar-10-batches-py/data_batch_4")
+    # X_train5, Y_train5, y_train5 = LoadBatch("datasets/cifar-10-batches-py/data_batch_5")
+    #
+    # X_train = np.concatenate((X_train1, X_train2, X_train3, X_train4, X_train5),axis=1)
+    # Y_train = np.concatenate((Y_train1, Y_train2, Y_train3, Y_train4, Y_train5),axis=1)
+    # y_train = np.concatenate((y_train1, y_train2, y_train3, y_train4, y_train5))
+    #
+    # #using 5000 elements for validation set during course/fine search and then 1000 in final phase
+    # validation_size = 1000
+    # X_validation = X_train[:, -validation_size:]
+    # Y_validation = Y_train[:, -validation_size:]
+    # y_validation = y_train[-validation_size:]
+    # X_train = X_train[:, :-validation_size]
+    # Y_train = Y_train[:, :-validation_size]
+    # y_train = y_train[:-validation_size]
 
-    # Training Lambda Search -------------------------------------------------------------------------------------------
-    X_train1, Y_train1, y_train1 = LoadBatch("datasets/cifar-10-batches-py/data_batch_1")
-    X_train2, Y_train2, y_train2 = LoadBatch("datasets/cifar-10-batches-py/data_batch_2")
-    X_train3, Y_train3, y_train3 = LoadBatch("datasets/cifar-10-batches-py/data_batch_3")
-    X_train4, Y_train4, y_train4 = LoadBatch("datasets/cifar-10-batches-py/data_batch_4")
-    X_train5, Y_train5, y_train5 = LoadBatch("datasets/cifar-10-batches-py/data_batch_5")
-
-    X_train = np.concatenate((X_train1, X_train2, X_train3, X_train4, X_train5),axis=1)
-    Y_train = np.concatenate((Y_train1, Y_train2, Y_train3, Y_train4, Y_train5),axis=1)
-    y_train = np.concatenate((y_train1, y_train2, y_train3, y_train4, y_train5))
-
-    #using 5000 elements for validation set during course/fine search and then 1000 in final phase
-    validation_size = 1000
-    X_validation = X_train[:, -validation_size:]
-    Y_validation = Y_train[:, -validation_size:]
-    y_validation = y_train[-validation_size:]
-    X_train = X_train[:, :-validation_size]
-    Y_train = Y_train[:, :-validation_size]
-    y_train = y_train[:-validation_size]
-
-    X_test, Y_test, y_test = LoadBatch("datasets/cifar-10-batches-py/test_batch")
-
-    data = {
-        'X_train': X_train,
-        'Y_train': Y_train,
-        'y_train': y_train,
-        'X_validation': X_validation,
-        'Y_validation': Y_validation,
-        'y_validation': y_validation,
-        'X_test': X_test,
-        'Y_test': Y_test,
-        'y_test': y_test
-    }
+    # X_test, Y_test, y_test = LoadBatch("datasets/cifar-10-batches-py/test_batch")
+    #
+    # data = {
+    #     'X_train': X_train,
+    #     'Y_train': Y_train,
+    #     'y_train': y_train,
+    #     'X_validation': X_validation,
+    #     'Y_validation': Y_validation,
+    #     'y_validation': y_validation,
+    #     'X_test': X_test,
+    #     'Y_test': Y_test,
+    #     'y_test': y_test
+    # }
 
 
     # generate lamdas
