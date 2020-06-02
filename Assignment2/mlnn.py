@@ -282,7 +282,6 @@ class MLNN:
             self.ComputeGradsNum(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda, 1e-5)
         grad_w1_analytical, grad_b1_analytical, grad_w2_analytical, grad_b2_analytical = \
             self.ComputeGradients(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, lamda)
-
         grad_w_vec = grad_w1_analytical.flatten()
         grad_w_num_vec = grad_w1_numerical.flatten()
         grad_b_vec = grad_b1_analytical.flatten()

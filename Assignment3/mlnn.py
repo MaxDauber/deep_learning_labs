@@ -198,43 +198,61 @@ class MLNN:
 
         """
 
-        return 0, 0
+        gradient_W = [np.zeros(np.shape(W[i])) for i in range(len(W))]
+        gradient_b = [np.zeros(np.shape(b[i])) for i in range(len(W))]
 
-        # gradient_W1 = np.zeros(np.shape(W_1))
-        # gradient_b1 = np.zeros(np.shape(b_1))
-        # gradient_W2 = np.zeros(np.shape(W_2))
-        # gradient_b2 = np.zeros(np.shape(b_2))
-        #
-        # # Forward Pass
-        # s1, h, P = self.EvaluateClassifier(X, W_1, b_1, W_2, b_2)
-        #
-        # # Backward Pass
+        # Forward Pass
+        _, H, P = self.EvaluateClassifier(X, W, b)
+
+        # Backward pass
+        G_batch = - (Y - P)
+
+        for layer in range(self.num_hidden, 0, -1):
+            gradient_W[layer] = 1 / np.shape(X)[1] * G_batch @ H[layer - 1].T + 2 * lamda * self.W[layer]
+            gradient_b[layer] = np.reshape(1 / np.shape(X)[1] * G_batch @ np.ones(np.shape(X)[1]),
+                                       (gradient_b[layer].shape[0], 1))
+
+            G_batch = self.W[layer].T @ G_batch
+            H[layer - 1][H[layer - 1] <= 0] = 0
+            G_batch = np.multiply(G_batch, H[layer - 1] > 0)
+
+        gradient_W[0] = 1 / np.shape(X)[1] * G_batch @ X.T + lamda * self.W[0]
+        gradient_b[0] = np.reshape(1 / np.shape(X)[1] * G_batch @ np.ones(np.shape(X)[1]), self.b[0].shape)
+
+
+
         # for i in range(np.shape(X)[1]):
         #     Y_i = Y[:, i].reshape((-1, 1))
         #     P_i = P[:, i].reshape((-1, 1))
-        #     X_i = X[:, i].reshape((-1, 1))
-        #     hidden_i = h[:, i].reshape((-1, 1))
-        #     s_i = s1[:, i]
+        #     h_i = H[-2][:, i].reshape((-1, 1))
         #
         #     temp_g = P_i - Y_i
-        #     gradient_b2 = gradient_b2 + temp_g
-        #     gradient_W2 = gradient_W2 + np.dot(temp_g, hidden_i.T)
+        #     gradient_b[-1] += temp_g
+        #     gradient_W[-1] += np.dot(temp_g, np.transpose(h_i))
         #
+        #     for layer in range(self.num_hidden - 1, - 1, -1):
+        #         s_i = s_l[layer][:, i]
+        #         if layer == 0:
+        #             h_i = X[:, i].reshape((-1, 1))
+        #         else:
+        #             h_i = H[layer - 1][:, i].reshape((-1, 1))
         #
-        #     temp_g = np.dot(W_2.T, temp_g)
-        #     temp_g = np.dot(np.diag(list(map(lambda num: num > 0, s_i))), temp_g)
+        #         temp_g = np.dot(np.transpose(W[layer + 1]), temp_g)
+        #         temp_g = np.dot(np.diag(list(map(lambda num: num > 0, s_i))), temp_g)
         #
+        #         gradient_b[layer] += temp_g
+        #         gradient_W[layer] += np.dot(temp_g, np.transpose(h_i))
         #
-        #     gradient_b1 = gradient_b1 + temp_g
-        #     gradient_W1 = gradient_W1 + np.dot(temp_g, X_i.T)
-        #
-        # gradient_b1 = np.divide(gradient_b1, np.shape(X)[1])
-        # gradient_W1 = np.divide(gradient_W1, np.shape(X)[1]) + 2 * lamda * W_1
-        #
-        # gradient_b2 = np.divide(gradient_b2, np.shape(X)[1])
-        # gradient_W2 = np.divide(gradient_W2, np.shape(X)[1]) + 2 * lamda * W_2
-        #
-        # return gradient_W1, gradient_b1, gradient_W2, gradient_b2
+        #     gradient_b = [np.divide(gradient_b[layer], np.shape(X)[1]) for layer in range(len(W))]
+        #     gradient_W = [np.divide(gradient_W[layer], np.shape(X)[1]) + 2 * lamda * W[layer] for layer in range(len(W))]
+
+        return gradient_W, gradient_b
+
+
+
+
+
+
 
 
     def ComputeGradsNum(self, X, Y, W, b, lamda, h):
@@ -290,26 +308,44 @@ class MLNN:
         """
         grad_w_numerical, grad_b_numerical = self.ComputeGradsNum(X, Y, self.W, self.b, lamda, 1e-5)
         grad_w_analytical, grad_b_analytical = self.ComputeGradients(X, Y, self.W, self.b, lamda)
+        print("******* Performing Gradient Checks *******")
+        for layer in range(self.num_hidden+1):
+            grad_w_vec = grad_w_analytical[layer].flatten()
+            grad_w_num_vec = grad_w_numerical[layer].flatten()
+            grad_b_vec = grad_b_analytical[layer].flatten()
+            grad_b_num_vec = grad_b_numerical[layer].flatten()
+            print("* W gradients for layer", layer, " *")
+            print("mean relative error: ", np.mean(abs((grad_w_vec + self.h_param ** 2) /
+                                                       (grad_w_num_vec + self.h_param ** 2) - 1)))
+            print("* Bias gradients for layer", layer, " *")
+            print("mean relative error: ", np.mean(abs((grad_b_vec + self.h_param ** 2) /
+                                                       (grad_b_num_vec + self.h_param ** 2) - 1)))
 
-        print("done")
-
-        # grad_w_vec = grad_w1_analytical.flatten()
-        # grad_w_num_vec = grad_w1_numerical.flatten()
-        # grad_b_vec = grad_b1_analytical.flatten()
-        # grad_b_num_vec = grad_b1_numerical.flatten()
-        # print("* W_1 gradients *")
-        # print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
-        # print("* Bias_1 gradients *")
-        # print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
-        #
-        # grad_w_vec = grad_w2_analytical.flatten()
-        # grad_w_num_vec = grad_w2_numerical.flatten()
-        # grad_b_vec = grad_b2_analytical.flatten()
-        # grad_b_num_vec = grad_b2_numerical.flatten()
-        # print("* W_1 gradients *")
-        # print("mean relative error: ", np.mean(abs(grad_w_vec / grad_w_num_vec - 1)))
-        # print("* Bias_1 gradients *")
-        # print("mean relative error: ", np.mean(abs(grad_b_vec / grad_b_num_vec - 1)))
+            # print("-------------------- W", layer, " gradients ------------------------")
+            # grad_w_vec = grad_w_analytical[layer].flatten()
+            # grad_w_num_vec = grad_w_numerical[layer].flatten()
+            # x_w = np.arange(1, grad_w_vec.shape[0] + 1)
+            # plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
+            # plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label=method, color='red')
+            # plt.legend()
+            # plt.title(("Gradient check of w", layer, ", batch size = " + str(X.shape[1])))
+            # plt.show()
+            # rel_error = abs((grad_w_vec) / (grad_w_num_vec - 1)
+            #
+            # print("mean relative error: ", np.mean(rel_error))
+            #
+            # print("--------------------- B", layer, " gradients ------------------------")
+            # grad_b_vec = grad_b_analytical[layer].flatten()
+            # grad_b_num_vec = grad_b_numerical[layer].flatten()
+            # x_b = np.arange(1, grad_b_analytical[layer].shape[0] + 1)
+            # plt.bar(x_b, grad_b_vec, 0.35, label='Analytical gradient', color='blue')
+            # plt.bar(x_b + 0.35, grad_b_num_vec, 0.35, label=method, color='red')
+            # plt.legend()
+            # plt.title(("Gradient check of b", layer, ", batch size = " + str(X.shape[1])))
+            # plt.show()
+            # rel_error = abs((grad_b_vec + self.h_param ** 2) / (grad_b_num_vec + self.h_param ** 2) - 1)
+            #
+            # print("mean relative error: ", np.mean(rel_error))
 
 
     def MiniBatchGD(self, X, Y, y, GDparams, verbose=True):
