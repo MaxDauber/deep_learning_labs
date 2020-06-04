@@ -107,7 +107,7 @@ class MLNN:
                 b: bias
 
             Returns:
-                s1: s node in computational graph
+                s: s node in computational graph
                 p : a stable softmax matrix
                 h1 : intermediate ReLU values
 
@@ -124,7 +124,7 @@ class MLNN:
 
         return s, h, P
 
-    def ComputeAccuracy(self, X, y, W, b, b_2):
+    def ComputeAccuracy(self, X, y, W, b):
         """
            Computes accuracy of network's predictions
 
@@ -208,51 +208,21 @@ class MLNN:
         G_batch = - (Y - P)
 
         for layer in range(self.num_hidden, 0, -1):
-            gradient_W[layer] = 1 / np.shape(X)[1] * G_batch @ H[layer - 1].T + 2 * lamda * self.W[layer]
-            gradient_b[layer] = np.reshape(1 / np.shape(X)[1] * G_batch @ np.ones(np.shape(X)[1]),
+            #nasty code, but will refactor later
+            gradient_W[layer] = np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.transpose(H[layer - 1])) \
+                                + 2 * np.multiply(lamda, W[layer])
+            gradient_b[layer] = np.reshape(np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.ones(np.shape(X)[1])),
                                        (gradient_b[layer].shape[0], 1))
 
-            G_batch = self.W[layer].T @ G_batch
+            G_batch = np.dot(np.transpose(W[layer]), G_batch)
             H[layer - 1][H[layer - 1] <= 0] = 0
             G_batch = np.multiply(G_batch, H[layer - 1] > 0)
+            # np.dot(np.diag(list(map(lambda num: num > 0, H[layer - 1]))), G_batch)
 
-        gradient_W[0] = 1 / np.shape(X)[1] * G_batch @ X.T + lamda * self.W[0]
-        gradient_b[0] = np.reshape(1 / np.shape(X)[1] * G_batch @ np.ones(np.shape(X)[1]), self.b[0].shape)
-
-
-
-        # for i in range(np.shape(X)[1]):
-        #     Y_i = Y[:, i].reshape((-1, 1))
-        #     P_i = P[:, i].reshape((-1, 1))
-        #     h_i = H[-2][:, i].reshape((-1, 1))
-        #
-        #     temp_g = P_i - Y_i
-        #     gradient_b[-1] += temp_g
-        #     gradient_W[-1] += np.dot(temp_g, np.transpose(h_i))
-        #
-        #     for layer in range(self.num_hidden - 1, - 1, -1):
-        #         s_i = s_l[layer][:, i]
-        #         if layer == 0:
-        #             h_i = X[:, i].reshape((-1, 1))
-        #         else:
-        #             h_i = H[layer - 1][:, i].reshape((-1, 1))
-        #
-        #         temp_g = np.dot(np.transpose(W[layer + 1]), temp_g)
-        #         temp_g = np.dot(np.diag(list(map(lambda num: num > 0, s_i))), temp_g)
-        #
-        #         gradient_b[layer] += temp_g
-        #         gradient_W[layer] += np.dot(temp_g, np.transpose(h_i))
-        #
-        #     gradient_b = [np.divide(gradient_b[layer], np.shape(X)[1]) for layer in range(len(W))]
-        #     gradient_W = [np.divide(gradient_W[layer], np.shape(X)[1]) + 2 * lamda * W[layer] for layer in range(len(W))]
+        gradient_W[0] = np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.transpose(X)) + np.multiply(lamda, W[0])
+        gradient_b[0] = np.reshape(np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.ones(np.shape(X)[1])), b[0].shape)
 
         return gradient_W, gradient_b
-
-
-
-
-
-
 
 
     def ComputeGradsNum(self, X, Y, W, b, lamda, h):
@@ -294,7 +264,7 @@ class MLNN:
 
         return gradient_W, gradient_b
 
-    def CheckGradients(self, X, Y, lamda=0, method="fast"):
+    def CheckGradients(self, X, Y, lamda=0):
         """
             Checks analytically computed gradients against numerically computed to determine margin of error
 
@@ -314,10 +284,10 @@ class MLNN:
             grad_w_num_vec = grad_w_numerical[layer].flatten()
             grad_b_vec = grad_b_analytical[layer].flatten()
             grad_b_num_vec = grad_b_numerical[layer].flatten()
-            print("* W gradients for layer", layer, " *")
+            print("* W gradients for layer", self.num_hidden - layer, " *")
             print("mean relative error: ", np.mean(abs((grad_w_vec + self.h_param ** 2) /
                                                        (grad_w_num_vec + self.h_param ** 2) - 1)))
-            print("* Bias gradients for layer", layer, " *")
+            print("* b gradients for layer", self.num_hidden - layer, " *")
             print("mean relative error: ", np.mean(abs((grad_b_vec + self.h_param ** 2) /
                                                        (grad_b_num_vec + self.h_param ** 2) - 1)))
 
