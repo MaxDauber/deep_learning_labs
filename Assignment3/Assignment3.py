@@ -137,8 +137,8 @@ if __name__ == '__main__':
 
     # Check Gradient Code is Correct -----------------------------------------------------------------------------------
     # Test with subset
-    neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
-    neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
+    # neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
+    # neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
 
     # # Test with entire network ---------------------------------------------------------------------------------------
 
@@ -148,11 +148,11 @@ if __name__ == '__main__':
     # neural_net.MiniBatchGD(X_train[:, :100], Y_train[:, :100], y_train[:100], params)
 
     # # Test Neural Network is Running -----------------------------------------------------------------------------------
-    # neural_net = MLNN(data, X_train, Y_train)
-    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=True, n_epochs=10, lamda=0.01)
-    # neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # # GeneratePlots(neural_net, params)
-    # GenerateCyclicPlots(neural_net, params)
+    neural_net = MLNN(data, X_train, Y_train)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=2250, cyclic=True, n_epochs=100, lamda=0.005)
+    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
+    # GeneratePlots(neural_net, params)
+    GenerateCyclicPlots(neural_net, params)
     #
     # neural_net = MLNN(data, X_train, Y_train)
     # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=50, lamda=0.01)

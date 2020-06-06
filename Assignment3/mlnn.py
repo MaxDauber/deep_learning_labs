@@ -12,7 +12,7 @@ class MLNN:
     MLNN - Multi Layer Neural Net (2+)
     """
 
-    def __init__(self, extracted, data, targets, **kwargs):
+    def __init__(self, extracted, data, targets,**kwargs):
         """
         Initialize Neural Network with data and parameters
         """
@@ -34,6 +34,7 @@ class MLNN:
             setattr(self, k, v)
 
         self.hidden_sizes = [50, 50]
+        # self.hidden_sizes = [50, 30, 20, 20, 10, 10, 10, 10] # for testing 9 layer network
         self.num_hidden = len(self.hidden_sizes)
         self.d = data.shape[0]
         self.n = data.shape[1]
@@ -115,14 +116,72 @@ class MLNN:
 
         h = [X]
         s = []
-        for idx in range(len(W)):
-            s_idx = np.dot(W[idx], h[-1]) + b[idx]
+        for layer in range(len(W)):
+            s_idx = np.dot(W[layer], h[-1]) + b[layer]
             s.append(s_idx)
             h.append(self.ReLu(s_idx))
         P = self.SoftMax(s[-1])
         h.pop(0)
 
         return s, h, P
+
+    def EvaluateClassifierBatchNorm(self, X, W, b, training=False):
+        """
+            Output stable softmax probabilities of the classifier
+
+            Args:
+                X: data matrix
+                W: weights
+                b: bias
+                epsilon:
+
+            Returns:
+                s: s node in computational graph
+                p : a stable softmax matrix
+                h1 : intermediate ReLU values
+                P:
+                scores:
+                batch_norm_scores:
+                batch_norm_relu_scores:
+                mus:
+                vars: 
+
+
+        """
+        scores = []  # nonnormalized scores
+        batch_norm_scores = []  # normalized scores
+        batch_norm_relu_scores = [X]  # normalized scores after ReLU
+        mus = []  # means of layers
+        vars = []  # vars of layers
+
+
+
+        for layer in range(len(W)):
+            score_layer = np.dot(W[layer], batch_norm_relu_scores[-1]) + b[layer]
+            scores.append(score_layer)
+
+            # mean and variance calculations for each layer
+            mu = np.mean(score_layer, axis=1)
+            var = np.var(score_layer, axis=1)
+            mus.append(mu)
+            vars.append(var)
+
+            # batch normalization calculations
+            batch_norm = np.zeros(np.shape(score_layer))
+            a = np.diag(np.power((var + 1e-16), (-1 / 2))) # 1e-16 is to prevent zero division
+            for i in range(np.shape(score_layer)[1]):
+                batch_norm[:, i] = np.dot(a, (score_layer[:, i] - mu))
+
+            batch_norm_scores.append(batch_norm)
+            batch_norm_relu_scores.append(self.ReLu(batch_norm))
+
+        # final layer computation and pop X
+        P = self.SoftMax(score_layer)
+        batch_norm_relu_scores.pop(0)
+
+        return P, scores, batch_norm_scores, batch_norm_relu_scores, mus, vars
+
+
 
     def ComputeAccuracy(self, X, y, W, b):
         """
@@ -290,32 +349,19 @@ class MLNN:
             print("* b gradients for layer", self.num_hidden - layer, " *")
             print("mean relative error: ", np.mean(abs((grad_b_vec + self.h_param ** 2) /
                                                        (grad_b_num_vec + self.h_param ** 2) - 1)))
+            x_w = np.arange(1, grad_w_vec.shape[0] + 1)
+            plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
+            plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label="fast", color='red')
+            plt.legend()
+            plt.title(("Gradient check of w", layer, ", batch size = " + str(X.shape[1])))
+            plt.show()
 
-            # print("-------------------- W", layer, " gradients ------------------------")
-            # grad_w_vec = grad_w_analytical[layer].flatten()
-            # grad_w_num_vec = grad_w_numerical[layer].flatten()
-            # x_w = np.arange(1, grad_w_vec.shape[0] + 1)
-            # plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
-            # plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label=method, color='red')
-            # plt.legend()
-            # plt.title(("Gradient check of w", layer, ", batch size = " + str(X.shape[1])))
-            # plt.show()
-            # rel_error = abs((grad_w_vec) / (grad_w_num_vec - 1)
-            #
-            # print("mean relative error: ", np.mean(rel_error))
-            #
-            # print("--------------------- B", layer, " gradients ------------------------")
-            # grad_b_vec = grad_b_analytical[layer].flatten()
-            # grad_b_num_vec = grad_b_numerical[layer].flatten()
-            # x_b = np.arange(1, grad_b_analytical[layer].shape[0] + 1)
-            # plt.bar(x_b, grad_b_vec, 0.35, label='Analytical gradient', color='blue')
-            # plt.bar(x_b + 0.35, grad_b_num_vec, 0.35, label=method, color='red')
-            # plt.legend()
-            # plt.title(("Gradient check of b", layer, ", batch size = " + str(X.shape[1])))
-            # plt.show()
-            # rel_error = abs((grad_b_vec + self.h_param ** 2) / (grad_b_num_vec + self.h_param ** 2) - 1)
-            #
-            # print("mean relative error: ", np.mean(rel_error))
+            x_b = np.arange(1, grad_b_analytical[layer].shape[0] + 1)
+            plt.bar(x_b, grad_b_vec, 0.35, label='Analytical gradient', color='blue')
+            plt.bar(x_b + 0.35, grad_b_num_vec, 0.35, label="fast", color='red')
+            plt.legend()
+            plt.title(("Gradient check of b", layer, ", batch size = " + str(X.shape[1])))
+            plt.show()
 
 
     def MiniBatchGD(self, X, Y, y, GDparams, verbose=True):
@@ -362,12 +408,10 @@ class MLNN:
                 end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_w1, grad_b1, grad_w2, grad_b2 = \
-                    self.ComputeGradients(X_batch, Y_batch, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
-                self.W_1 = self.W_1 - lr * grad_w1
-                self.b_1 = self.b_1 - lr * grad_b1
-                self.W_2 = self.W_2 - lr * grad_w2
-                self.b_2 = self.b_2 - lr * grad_b2
+                grad_w, grad_b = self.ComputeGradients(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
+                for layer in range(self.num_hidden):
+                    self.W[layer] = self.W[layer] - lr * grad_w[layer]
+                    self.b[layer] = self.b[layer] - lr * grad_b[layer]
                 update_step += 1
 
                 # implementing cyclic learning rate
@@ -383,12 +427,12 @@ class MLNN:
 
 
             if verbose:
-                training_cost = self.ComputeCost(X, Y, self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
-                training_accuracy = self.ComputeAccuracy(X, y, self.W_1, self.b_1, self.W_2, self.b_2)
+                training_cost = self.ComputeCost(X, Y, self.W, self.b, GDparams.lamda)
+                training_accuracy = self.ComputeAccuracy(X, y, self.W, self.b)
                 validation_cost = self.ComputeCost(self.X_validation, self.Y_validation,
-                                                   self.W_1, self.b_1, self.W_2, self.b_2, GDparams.lamda)
+                                                   self.W, self.b, GDparams.lamda)
                 validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
-                                                           self.W_1, self.b_1, self.W_2, self.b_2)
+                                                           self.W, self.b)
 
                 if GDparams.cyclic :
                     self.history_update.append(update_step)
@@ -404,8 +448,8 @@ class MLNN:
                       " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
                       " | Validation cost: ", "{:.10f}".format(validation_cost))
 
-        self.test_accuracy = self.ComputeAccuracy(self.X_test, self.y_test, self.W_1, self.b_1, self.W_2, self.b_2)
-        self.test_cost = self.ComputeCost(self.X_test, self.Y_test, self.W_1, self.b_1, self.W_2, self.b_2,
+        self.test_accuracy = self.ComputeAccuracy(self.X_test, self.y_test, self.W, self.b)
+        self.test_cost = self.ComputeCost(self.X_test, self.Y_test, self.W, self.b,
                                           GDparams.lamda)
         print("Test Accuracy: ", self.test_accuracy)
         print("Test Cost: ", self.test_cost)
