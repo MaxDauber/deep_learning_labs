@@ -42,6 +42,7 @@ class MLNN:
         self.W, self.b = self.InitializeWeightsBias()
         self.test_accuracy = 0
         self.test_cost = 0
+        self.batch_norm = True
 
 
 
@@ -300,7 +301,6 @@ class MLNN:
                 gradient_b: gradient of the bias parameter
 
         """
-        layers = len(W)
 
         gradient_W = [np.zeros(np.shape(W[i])) for i in range(len(W))]
         gradient_b = [np.zeros(np.shape(b[i])) for i in range(len(W))]
@@ -308,182 +308,49 @@ class MLNN:
         # Forward Pass
         P, scores, bn_scores, bn_relu_scores, mus, vars = self.EvaluateClassifierBatchNorm(X, W, b)
 
+
+        # Backward Pass
         G_batch = -(Y - P)
         layer = len(W) - 1
 
-        # compute grads
         gradient_b.insert(0, (1 / np.shape(Y)[1]) * np.sum(G_batch, axis=1).reshape(-1, 1))
         gradient_W.insert(0, (1 / np.shape(Y)[1]) * np.dot(G_batch, bn_relu_scores[layer-1].T) + 2 * lamda * W[layer])
 
-        # propogate to prev layer
         G_batch = np.dot(np.transpose(W[layer]), G_batch)
         G_batch = np.multiply(G_batch, list(map(lambda num: num > 0, bn_scores[layer - 1])))
 
-        # previous layers
-        for layer in range(layers - 2, -1, -1):
+        for layer in range(len(W) - 2, -1, -1):
 
             n = np.shape(G_batch)[1]
             var_layer = vars[layer]
             mu_layer = mus[layer]
             score_layer = scores[layer]
 
-            V12 = np.diag(np.power((var_layer + 1e-16), (-1 / 2)))
-            V32 = np.diag(np.power((var_layer + 1e-16), (-3 / 2)))
+            v1_2 = np.diag(np.power((var_layer + 1e-16), (-1 / 2)))
+            v3_2 = np.diag(np.power((var_layer + 1e-16), (-3 / 2)))
 
-            gradJvar = np.zeros(np.shape(mu_layer))
+            grad_var = -(1 / 2) * sum([np.dot(G_batch[:, i], (np.dot(v3_2, np.diag(score_layer[:, i] - mu_layer))))
+                                       for i in range(n)])
+
+            grad_mu = (-1) * sum([np.dot(G_batch[:, i], v1_2) for i in range(n)])
+
+            G_temp = np.zeros(np.shape(G_batch))
             for i in range(n):
-                gradJvar += np.dot(g[:, i], (np.dot(V32, np.diag(score_layer[:, i] - mu_layer))))
-            gradJvar = -(1 / 2) * gradJvar
+                G_temp[:, i] = np.dot(G_batch[:, i], v1_2) + (2 / n) * \
+                               np.dot(grad_var, np.diag(score_layer[:, i] - mu_layer)) + (1 / n) * grad_mu
 
-            gradJmu = np.zeros(np.shape(mu_layer))
-            for i in range(n):
-                gradJmu += np.dot(g[:, i], V12)
-            gradJmu = gradJmu * (-1)
-
-            gnew = np.zeros(np.shape(g))
-            # for each datapoint
-            for i in range(n):
-                gnew[:, i] = np.dot(g[:, i], V12) + (2 / n) * np.dot(gradJvar, np.diag(score_layer[:, i] - mu_layer)) + (
-                            1 / n) * gradJmu
-
-
-            # compute grads
             if layer > 0:
-                bn_relu_scores_prev_layer = bn_relu_scores[layer - 1]
+                prev_layer = bn_relu_scores[layer - 1]
             else:
-                bn_relu_scores_prev_layer = X
+                prev_layer = X
+            gradient_b.insert(0, (1 / n) * np.sum(G_temp, axis=1).reshape(-1, 1))
+            gradient_W.insert(0, (1 / n) * np.dot(G_temp, prev_layer.T) + 2 * lamda * W[layer])
 
-            gradient_b.insert(0, (1 / np.shape(Y)[1]) * np.sum(G_batch, axis=1).reshape(-1, 1))
-            gradient_W.insert(0, (1 / np.shape(Y)[1]) * np.dot(G_batch, bn_relu_scores[layer].T) + 2 * lamda * W[layer])
-
-
-            bgrad, Wgrad = ComputeBatchBackGrads(n, G, bn_relu_scores_prev_layer, lamda, W, layer)
-            gradient_b.insert(0, bgrad)
-            gradient_W.insert(0, Wgrad)
-            # propagate to prev layer
             if layer > 0:
-                G = PropagateBatchBackGrads(G, W, bn_scores, layer)
+                G_batch = np.dot(np.transpose(W[layer]), G_batch)
+                G_batch = np.multiply(G_batch, list(map(lambda num: num > 0, bn_scores[layer - 1])))
 
-        return gradient_W, gradient_b
-
-    # def IndXPositive(x):
-    #     above_zero_indices = x > 0
-    #     below_zero_indices = x <= 0
-    #     x[above_zero_indices] = 1
-    #     x[below_zero_indices] = 0
-    #
-    #     return x
-    #
-    # def ComputeBatchBackGrads(n, g, bn_relu_scores_prev_layer, lamda, W, layer):
-    #     bgrad = (1 / n) * np.sum(g, axis=1)
-    #     bgrad = bgrad.reshape(-1, 1)
-    #     Wgrad = (1 / n) * np.dot(g, bn_relu_scores_prev_layer.T) + 2 * lamda * W[layer]
-    #     return (bgrad, Wgrad)
-    #
-    # def PropagateBatchBackGrads(g, W, bn_scores, layer):
-    #     g = np.dot(W[layer].T, g)
-    #     g = np.multiply(g, IndXPositive(bn_scores[layer - 1]))
-    #     # did the elementwise multiplication (above)
-    #     # instead of this:
-    #     # for i in range(n):
-    #     #     g[:,i] = np.dot(g[:,i], np.diag(IndXPositive(bn_scores[-2][:,i])))
-    #     return g
-    #
-    # def BatchNormBackPass(layer, g, scores, mus, vars, epsilon):
-    #     n = np.shape(g)[1]
-    #
-    #     vl = vars[layer]
-    #     mul = mus[layer]
-    #     sl = scores[layer]
-    #
-    #     V12 = (vl + epsilon)
-    #     V12 = np.power(V12, (-1 / 2))
-    #     V12 = np.diag(V12)
-    #
-    #     V32 = (vl + epsilon)
-    #     V32 = np.power(V32, (-3 / 2))
-    #     V32 = np.diag(V32)
-    #
-    #     gradJvar = np.zeros(np.shape(mul))
-    #     for i in range(n):
-    #         gradJvar += np.dot(g[:, i], (np.dot(V32, np.diag(sl[:, i] - mul))))
-    #     gradJvar = -(1 / 2) * gradJvar
-    #
-    #     gradJmu = np.zeros(np.shape(mul))
-    #     for i in range(n):
-    #         gradJmu += np.dot(g[:, i], V12)
-    #     gradJmu = gradJmu * (-1)
-    #
-    #     gnew = np.zeros(np.shape(g))
-    #     # for each datapoint
-    #     for i in range(n):
-    #         gnew[:, i] = np.dot(g[:, i], V12) + (2 / n) * np.dot(gradJvar, np.diag(sl[:, i] - mul)) + (1 / n) * gradJmu
-    #
-    #     return gnew
-    #
-    # def BackwardBatchNorm(X, Y, P, W, scores, bn_scores, bn_relu_scores, lamda, mus, vars, epsilon):
-    #     n = np.shape(Y)[1]
-    #     layers = len(W)
-    #
-    #     bgrads = []
-    #     Wgrads = []
-    #
-    #     # last layer
-    #     layer = layers - 1
-    #     g = -(Y - P)
-    #     # compute grads
-    #     bgrad, Wgrad = ComputeBatchBackGrads(n, g, bn_relu_scores[layer - 1], lamda, W, layer)
-    #     bgrads.insert(0, bgrad)
-    #     Wgrads.insert(0, Wgrad)
-    #     # propagate to prev layer
-    #     g = PropagateBatchBackGrads(g, W, bn_scores, layer)
-    #
-    #     # previous layers
-    #     for layer in range(layers - 2, -1, -1):
-    #         g = BatchNormBackPass(layer, g, scores, mus, vars, epsilon)
-    #         # compute grads
-    #         if layer > 0:
-    #             bn_relu_scores_prev_layer = bn_relu_scores[layer - 1]
-    #         else:
-    #             bn_relu_scores_prev_layer = X
-    #         bgrad, Wgrad = ComputeBatchBackGrads(n, g, bn_relu_scores_prev_layer, lamda, W, layer)
-    #         bgrads.insert(0, bgrad)
-    #         Wgrads.insert(0, Wgrad)
-    #         # propagate to prev layer
-    #         if layer > 0:
-    #             g = PropagateBatchBackGrads(g, W, bn_scores, layer)
-    #
-    #     return (Wgrads, bgrads)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return gradient_W, gradient_b, mus, vars
 
 
     def ComputeGradsNum(self, X, Y, W, b, lamda, h):
@@ -590,9 +457,13 @@ class MLNN:
         self.history_training_accuracy = []
         self.history_validation_accuracy = []
 
+        # batch norm metrics
+        self.moving_avg_mean = [np.zeros(self.hidden_sizes[l]) for l in range(self.num_hidden)]
+        self.moving_avg_var = [np.zeros(self.hidden_sizes[l]) for l in range(self.num_hidden)]
+        alpha = 0  # only for the first loop. then I change it to 0.99
+
         # history for cyclic training
         self.history_update = []
-
 
         if GDparams.cyclic:
             lr = GDparams.lr_min
@@ -610,10 +481,17 @@ class MLNN:
                 end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                grad_w, grad_b = self.ComputeGradients(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
+                if self.batch_norm:
+                    gradient_W, gradient_b, gradient_mu, gradient_var = self.ComputeGradientsBatchNorm(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
+                    for layer in range(len(self.hidden_sizes)):
+                        self.moving_avg_mean[layer] = alpha * self.moving_avg_mean[layer] + (1 - alpha) * gradient_mu[layer]
+                        self.moving_avg_var[layer] = alpha * self.moving_avg_var[layer] + (1 - alpha) * gradient_var[layer]
+                    alpha = 0.99
+                else:
+                    gradient_W, gradient_b = self.ComputeGradients(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
                 for layer in range(self.num_hidden):
-                    self.W[layer] = self.W[layer] - lr * grad_w[layer]
-                    self.b[layer] = self.b[layer] - lr * grad_b[layer]
+                    self.W[layer] = self.W[layer] - lr * gradient_W[layer]
+                    self.b[layer] = self.b[layer] - lr * gradient_b[layer]
                 update_step += 1
 
                 # implementing cyclic learning rate
