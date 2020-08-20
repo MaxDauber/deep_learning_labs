@@ -4,6 +4,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.utils import shuffle
 from copy import deepcopy
 from tqdm import tqdm
 
@@ -12,7 +13,7 @@ class MLNN:
     MLNN - Multi Layer Neural Net (2+)
     """
 
-    def __init__(self, extracted, data, targets,**kwargs):
+    def __init__(self, extracted, data, targets, **kwargs):
         """
         Initialize Neural Network with data and parameters
         """
@@ -34,15 +35,18 @@ class MLNN:
             setattr(self, k, v)
 
         self.hidden_sizes = [50, 50]
-        # self.hidden_sizes = [50, 30, 20, 20, 10, 10, 10, 10] # for testing 9 layer network
+        # self.hidden_sizes = [50, 50, 30, 20, 20, 10, 10, 10] # for testing 9 layer network
         self.num_hidden = len(self.hidden_sizes)
+        self.batch_norm = True
+        self.initialization = "he"
+
         self.d = data.shape[0]
         self.n = data.shape[1]
         self.K = targets.shape[0]
         self.W, self.b = self.InitializeWeightsBias()
         self.test_accuracy = 0
         self.test_cost = 0
-        self.batch_norm = True
+
 
 
 
@@ -57,11 +61,18 @@ class MLNN:
                 b = bias
                 W = weights for k layers
         """
+        if self.initialization == "he":
+            W = [np.random.normal(0, (2 / self.hidden_sizes[0]), (self.hidden_sizes[0], self.d))]
+            for i in range(1, self.num_hidden):
+                W.append(np.random.normal(0, (2 / self.hidden_sizes[i - 1]), (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
+            W.append(np.random.normal(0, (2 / self.hidden_sizes[-1]), (self.K, self.hidden_sizes[-1])))
+        else:
+            W = [np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[0], self.d))]
+            for i in range(1, self.num_hidden):  # add intermediary layers
+                W.append(np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
+            W.append(np.random.normal(self.mean_weights, self.var_weights, (self.K, self.hidden_sizes[self.num_hidden - 1])))
 
-        W = [np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[0], self.d))] # first layer
-        for i in range(1, self.num_hidden): # add intermediary layers
-            W.append(np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
-        W.append(np.random.normal(self.mean_weights, self.var_weights, (self.K, self.hidden_sizes[self.num_hidden - 1])))
+
 
         b = [np.zeros((self.hidden_sizes[idx], 1)) for idx in range(self.num_hidden)] # add intermediary layers
         b.append(np.zeros((self.K, 1))) # add last layer
@@ -474,7 +485,6 @@ class MLNN:
         # rounded to avoid non-integer number of datapoints per step
         num_batches = int(self.n / GDparams.n_batch)
         update_step = 0
-        # for epoch in tqdm(range(GDparams.n_epochs)):
         for epoch in range(GDparams.n_epochs):
             for step in range(num_batches):
                 start_batch = step * GDparams.n_batch
@@ -503,7 +513,8 @@ class MLNN:
                     t = (t + 1) % (2 * GDparams.n_s)
 
 
-
+            # shuffling training data
+            # X, y = shuffle(X, y, random_state=0)
 
 
             if verbose:

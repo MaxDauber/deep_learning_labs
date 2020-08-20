@@ -147,11 +147,11 @@ if __name__ == '__main__':
     # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=False, n_epochs=200, lamda=0)
     # neural_net.MiniBatchGD(X_train[:, :100], Y_train[:, :100], y_train[:100], params)
 
-    # # Test Neural Network is Running -----------------------------------------------------------------------------------
+    # General Test Runs -----------------------------------------------------------------------------------
     neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=2250, cyclic=True, n_epochs=100, lamda=0.005)
+    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=5*45000/100, cyclic=True, n_epochs=100, lamda=0.005)
     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # GeneratePlots(neural_net, params)
+    GeneratePlots(neural_net, params)
     GenerateCyclicPlots(neural_net, params)
 
     # # Training Lambda Search -------------------------------------------------------------------------------------------
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     # X_train = X_train[:, :-validation_size]
     # Y_train = Y_train[:, :-validation_size]
     # y_train = y_train[:-validation_size]
-
+    #
     # X_test, Y_test, y_test = LoadBatch("datasets/cifar-10-batches-py/test_batch")
     #
     # data = {
@@ -187,30 +187,30 @@ if __name__ == '__main__':
     #     'Y_test': Y_test,
     #     'y_test': y_test
     # }
-
-
-    # generate lamdas
-
-    #first round (coarse)
+    #
+    #
+    # # generate lamdas
+    #
+    # # first round (coarse)
     # l_min = -5
     # l_max = -1
     # lamdas = [pow(10, (l_min + (l_max - l_min) * random.random())) for iter in range(8)]
-
-    # second round
-    # lamdas = [0.0001, 0.00025, 0.0005, 0.00075, 0.001]
-
-    # third round
-    # lamdas = [0.00075, 0.000775, 0.0008, 0.000825, 0.00085, 0.000875, 0.0009, 0.000925]
-
+    #
+    # # second round
+    # # lamdas = [0.0001, 0.00025, 0.0005, 0.00075, 0.001]
+    #
+    # # third round
+    # # lamdas = [0.00075, 0.000775, 0.0008, 0.000825, 0.00085, 0.000875, 0.0009, 0.000925]
+    #
     # for lamda in lamdas:
     #     neural_net = MLNN(data, X_train, Y_train)
     #     params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=800, cyclic=True, n_epochs=20,lamda=lamda)
     #     print("MiniBatch Training with lambda=", lamda)
     #     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
     #     GeneratePlots(neural_net, params)
-
-
-    # final round of training (for 8e-4)
+    #
+    #
+    # # final round of training (for 8e-4)
     # neural_net = MLNN(data, X_train, Y_train)
     # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=980, cyclic=True, n_epochs=12, lamda=8e-4)
     # neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
