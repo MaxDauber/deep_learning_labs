@@ -35,10 +35,11 @@ class MLNN:
             setattr(self, k, v)
 
         self.hidden_sizes = [50, 50]
-        # self.hidden_sizes = [50, 50, 30, 20, 20, 10, 10, 10] # for testing 9 layer network
+        # self.hidden_sizes = [50, 30, 20, 20, 10, 10, 10, 10] # for testing 9 layer network
         self.num_hidden = len(self.hidden_sizes)
-        self.batch_norm = True
-        self.initialization = "he"
+        self.batch_norm = False
+        self.initialization = "sensetivity"
+        self.sig = 0.1
 
         self.d = data.shape[0]
         self.n = data.shape[1]
@@ -66,6 +67,12 @@ class MLNN:
             for i in range(1, self.num_hidden):
                 W.append(np.random.normal(0, (2 / self.hidden_sizes[i - 1]), (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
             W.append(np.random.normal(0, (2 / self.hidden_sizes[-1]), (self.K, self.hidden_sizes[-1])))
+
+        elif self.initialization == "sensetivity":
+            W = [np.random.normal(0, self.sig, (self.hidden_sizes[0], self.d))]
+            for i in range(1, self.num_hidden):
+                W.append(np.random.normal(0, self.sig, (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
+            W.append(np.random.normal(0, self.sig, (self.K, self.hidden_sizes[-1])))
         else:
             W = [np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[0], self.d))]
             for i in range(1, self.num_hidden):  # add intermediary layers
