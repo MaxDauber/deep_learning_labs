@@ -37,9 +37,8 @@ class MLNN:
         self.hidden_sizes = [50, 50]
         # self.hidden_sizes = [50, 30, 20, 20, 10, 10, 10, 10] # for testing 9 layer network
         self.num_hidden = len(self.hidden_sizes)
-        self.batch_norm = False
-        self.initialization = "sensetivity"
-        self.sig = 0.1
+        self.initialization = ""
+        self.sig = 0.0001
 
         self.d = data.shape[0]
         self.n = data.shape[1]
@@ -498,7 +497,7 @@ class MLNN:
                 end_batch = start_batch + GDparams.n_batch
                 X_batch = X[:, start_batch:end_batch]
                 Y_batch = Y[:, start_batch:end_batch]
-                if self.batch_norm:
+                if GDparams.batch_norm:
                     gradient_W, gradient_b, gradient_mu, gradient_var = self.ComputeGradientsBatchNorm(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
                     for layer in range(len(self.hidden_sizes)):
                         self.moving_avg_mean[layer] = alpha * self.moving_avg_mean[layer] + (1 - alpha) * gradient_mu[layer]
@@ -577,7 +576,7 @@ class GDparams:
 
     """
 
-    def __init__(self, n_batch, lr, lr_max, lr_min, n_s, cyclic, n_epochs, lamda):
+    def __init__(self, n_batch, lr, lr_max, lr_min, n_s, cyclic, n_epochs, lamda, batch_norm):
         # n_batch: Number of samples in each mini-batch.
         self.n_batch = n_batch
 
@@ -596,4 +595,6 @@ class GDparams:
 
         # lamda: regularization term used for the gradient descent
         self.lamda = lamda
+
+        self.batch_norm = batch_norm
 
