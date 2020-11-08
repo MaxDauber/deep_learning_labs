@@ -2,203 +2,110 @@
 # -*- coding: utf-8 -*-
 # author: Max Dauber  dauber@kth.se
 """
-This is the main file of Assignment 3 for DD2424 Deep Learning
-This assignment implements a k-layer neural network.
+This is the main file of Assignment 4 for DD2424 Deep Learning
+This assignment implements a text-generating RNN based on the Harry Potter Books.
 """
 
 
 import pickle
-# import statistics
-# import unittest
+import statistics
+import unittest
 from math import pow
 import random
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
-from mlnn import MLNN, GDparams
-
-def LoadBatch(filename):
-    """
-        Load Batch for dataset
-
-        Args:
-            filename: relative filepath for dataset
-
-        Returns:
-            X: images
-            Y: one-hot labels
-            y: labels
-    """
-    with open(filename, 'rb') as f:
-        dataDict = pickle.load(f, encoding='bytes')
-
-        X = (dataDict[b"data"]).T
-        y = dataDict[b"labels"]
-        Y = (np.eye(10)[y]).T
-
-        meanX = np.mean(X)
-        stdX = np.std(X)
-        X = (X - meanX) / stdX
-
-    return X, Y, y
+from rnn import RNN
 
 
-def GeneratePlots(neural_net, params):
-    x = list(range(1, len(neural_net.history_training_cost) + 1))
-    plt.plot(x, neural_net.history_training_cost, label="Training Loss")
-    plt.plot(x, neural_net.history_validation_cost, label="Validation Loss")
-    plt.title("Loss over epochs")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig("Plots/loss_cyclic_lambda=" + str(params.lamda) + ".png", bbox_inches="tight")
-    plt.show()
+class DataObject:
 
-    plt.plot(x, neural_net.history_training_accuracy, label="Training Accuracy")
-    plt.plot(x, neural_net.history_validation_accuracy, label="Validation Accuracy")
-    plt.title("Accuracy over epochs")
-    plt.xlabel("Epochs")
-    plt.ylabel("Accuracy")
-    plt.legend()
-    plt.savefig("Plots/accuracy_cyclic_lambda=" + str(params.lamda) + ".png", bbox_inches="tight")
-    plt.show()
+    def __init__(self, file):
+        self.data_string = open(file, 'r').read()
+        self.book_data = list(self.data_string)
 
-def GenerateCyclicPlots(neural_net, params):
-    # x = list(range(1, len(neural_net.history_training_cost_cyclic) + 1))
-    # plt.plot(x, neural_net.history_training_cost_cyclic, label="Training Loss")
-    # plt.plot(x, neural_net.history_validation_cost_cyclic, label="Validation Loss")
-    plt.plot(neural_net.history_update, neural_net.history_training_cost, label="Training Loss")
-    plt.plot(neural_net.history_update, neural_net.history_validation_cost, label="Validation Loss")
-    plt.title("Loss Plot for sig=1e-4")
-    plt.xlabel("Update Step")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.savefig("Plots/loss_cyclic_bn=" + str(params.batch_norm) + ".png", bbox_inches="tight")
-    plt.show()
-    plt.plot(neural_net.history_update, neural_net.history_training_accuracy, label="Training Accuracy")
-    plt.plot(neural_net.history_update, neural_net.history_validation_accuracy, label="Validation Accuracy")
-    plt.title("Accuracy Plot")
-    plt.xlabel("Update Step")
-    plt.ylabel("Accuracy")
-    plt.legend()
-    plt.savefig("Plots/accuracy_cyclic_n-s_" + str(params.batch_norm) + ".png", bbox_inches="tight")
-    plt.show()
+        # unique characters in string of text
+        self.book_chars = list(set(self.data_string))
+        self.vocab_len = len(self.book_chars)
 
-def save_as_mat(data, name="model"):
-    """ Used to transfer a python model to matlab """
-    # import scipy.io as sio
-    # sio.savemat(name'.mat',{name:b})
+
+        # dict mapping characters to ints
+        self.char_to_ind= dict()
+        for char in self.book_chars:
+            self.char_to_ind[char] = len(self.char_to_ind)
+
+        # dict mapping ints back to characters
+        self.ind_to_char = dict(zip(self.char_to_ind.values(), self.char_to_ind.keys()))
+
+    def char_to_int(self, char_list):
+        return [self.char_to_ind[char] for char in char_list]
+
+    def int_to_char(self, int_list):
+        return [self.ind_to_char[int] for int in int_list]
+
+    def onehot_to_string(self, one_hot_seq):
+        gen_ints = [np.where(r == 1)[0][0] for r in one_hot_seq]
+        gen_char_list = self.int_to_char(gen_ints)
+        return ''.join(gen_char_list)
+
+    def chars_to_onehot(self, char_list):
+        int_list = self.char_to_int(char_list)
+        one_hot = np.zeros((len(self.book_chars), len(int_list)))
+        for i, int_elem in enumerate(int_list):
+            one_hot[int_elem, i] = 1
+        return one_hot
 
 
 if __name__ == '__main__':
     np.random.seed(0)
+    data = DataObject("goblet_book.txt")
+
+    e = 0 # Book position tracker
+    n = 0 # Iteration number
+    epoch = 0
+    num_epochs = 10
+    rnn = RNN(data)
 
 
-    # Initialize small training set
-    X_train, Y_train, y_train = LoadBatch("Datasets/cifar-10-batches-py/data_batch_1")
-    X_validation, Y_validation, y_validation = LoadBatch("Datasets/cifar-10-batches-py/data_batch_2")
-    X_test, Y_test, y_test = LoadBatch("Datasets/cifar-10-batches-py/test_batch")
+    while epoch < num_epochs:
+        if n == 0 or e >= (len(rnn.book_data) - rnn.seq_length - 1):
+            if epoch != 0: print("Finished %i epochs." % epoch)
+            hprev = np.zeros((rnn.m, 1))
+            e = 0
+            epoch += 1
 
-    data = {
-        'X_train': X_train,
-        'Y_train': Y_train,
-        'y_train': y_train,
-        'X_validation': X_validation,
-        'Y_validation': Y_validation,
-        'y_validation': y_validation,
-        'X_test': X_test,
-        'Y_test': Y_test,
-        'y_test': y_test
-    }
+        inputs = [rnn.char_to_ind[char] for char in rnn.book_data[e:e + rnn.seq_length]]
+        targets = [rnn.char_to_ind[char] for char in rnn.book_data[e + 1:e + rnn.seq_length + 1]]
 
-    # Check Gradient Code is Correct -----------------------------------------------------------------------------------
-    # Test with subset
-    # neural_net = MLNN(data, X_train[:8, :100], Y_train[:, :100])
-    # neural_net.CheckGradients(X_train[:8, :100], Y_train[:, :100])
+        gradients, loss, hprev = rnn.ComputeGradients(inputs, targets, hprev)
 
-    # # Test with entire network ---------------------------------------------------------------------------------------
+        # Compute smooth loss
+        if n == 0 and epoch == 1: smooth_loss = loss
+        smooth_loss = 0.999 * smooth_loss + 0.001 * loss
 
-    # Sanity check of network on 100 examples to check overfitting and low loss ----------------------------------------
-    # neural_net = MLNN(data, X_train[:, :100], Y_train[:, :100])
-    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=500, cyclic=False, n_epochs=200, lamda=0)
-    # neural_net.MiniBatchGD(X_train[:, :100], Y_train[:, :100], y_train[:100], params)
+        # Check gradients
+        if n == 0: rnn.check_gradients(inputs, targets, hprev)
 
-    # General Test Runs -----------------------------------------------------------------------------------
-    neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=2250, cyclic=True, n_epochs=60, lamda=0.005,
-                      batch_norm=True)
-    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    GeneratePlots(neural_net, params)
-    GenerateCyclicPlots(neural_net, params)
+        # Print the loss
+        if n % 100 == 0: print('Iteration %d, smooth loss: %f' % (n, smooth_loss))
 
-    neural_net = MLNN(data, X_train, Y_train)
-    params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=2250, cyclic=True, n_epochs=60, lamda=0.005,
-                      batch_norm=False)
-    neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    GeneratePlots(neural_net, params)
-    GenerateCyclicPlots(neural_net, params)
+        # Print synthesized text
+        if n % 500 == 0:
+            txt = rnn.synthesize_text(hprev, inputs[0], 200)
+            print('\nSynthesized text after %i iterations:\n %s\n' % (n, txt))
+            print('Smooth loss: %f' % smooth_loss)
 
-    # # # Training Lambda Search -------------------------------------------------------------------------------------------
-    # X_train1, Y_train1, y_train1 = LoadBatch("datasets/cifar-10-batches-py/data_batch_1")
-    # X_train2, Y_train2, y_train2 = LoadBatch("datasets/cifar-10-batches-py/data_batch_2")
-    # X_train3, Y_train3, y_train3 = LoadBatch("datasets/cifar-10-batches-py/data_batch_3")
-    # X_train4, Y_train4, y_train4 = LoadBatch("datasets/cifar-10-batches-py/data_batch_4")
-    # X_train5, Y_train5, y_train5 = LoadBatch("datasets/cifar-10-batches-py/data_batch_5")
-    #
-    # X_train = np.concatenate((X_train1, X_train2, X_train3, X_train4, X_train5),axis=1)
-    # Y_train = np.concatenate((Y_train1, Y_train2, Y_train3, Y_train4, Y_train5),axis=1)
-    # y_train = np.concatenate((y_train1, y_train2, y_train3, y_train4, y_train5))
-    #
-    # #using 5000 elements for validation set during course/fine search and then 1000 in final phase
-    # validation_size = 1000
-    # X_validation = X_train[:, -validation_size:]
-    # Y_validation = Y_train[:, -validation_size:]
-    # y_validation = y_train[-validation_size:]
-    # X_train = X_train[:, :-validation_size]
-    # Y_train = Y_train[:, :-validation_size]
-    # y_train = y_train[:-validation_size]
-    #
-    # X_test, Y_test, y_test = LoadBatch("datasets/cifar-10-batches-py/test_batch")
-    #
-    # data = {
-    #     'X_train': X_train,
-    #     'Y_train': Y_train,
-    #     'y_train': y_train,
-    #     'X_validation': X_validation,
-    #     'Y_validation': Y_validation,
-    #     'y_validation': y_validation,
-    #     'X_test': X_test,
-    #     'Y_test': Y_test,
-    #     'y_test': y_test
-    # }
-    #
-    #
-    # # generate lamdas
-    #
-    # # first round (coarse)
-    # # lamdas =  [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
-    #
-    # # second round
-    # # lamdas = [0.00001, 0.000025, 0.00005, 0.000075, 0.0001]
-    #
-    # # # third round
-    # # lamdas = [0.000005,0.0000075, 0.00001, 0.0000125, 0.000015]
-    # #
-    # # for lamda in lamdas:
-    # #     neural_net = MLNN(data, X_train, Y_train)
-    # #     params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=5*45000/100, cyclic=True, n_epochs=20,lamda=lamda)
-    # #     print("MiniBatch Training with lambda=", lamda)
-    # #     neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # #     GeneratePlots(neural_net, params)
-    #
-    #
-    # # final round of training (for 7e-6)
-    # lamda = 0.0000075
-    # neural_net = MLNN(data, X_train, Y_train)
-    # params = GDparams(n_batch=100, lr=0.001, lr_max=1e-1, lr_min=1e-5, n_s=2250, cyclic=True, n_epochs=20, lamda=lamda)
-    # neural_net.MiniBatchGD(X_train, Y_train, y_train, params)
-    # GeneratePlots(neural_net, params)
+        # AdaGrad Update
+        for key in rnn.params:
+            rnn.adagrad_params[key] += gradients[key] * gradients[key]
+            rnn.params[key] -= rnn.eta / np.sqrt(rnn.adagrad_params[key] + np.finfo(float).eps) * gradients[key]
+
+        e += rnn.N
+        n += 1
+    # rnn.CheckGradients(data)
+    # rnn.TrainModel(data)
+
+
 
 
 

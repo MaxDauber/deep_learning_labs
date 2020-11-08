@@ -4,597 +4,370 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.utils import shuffle
 from copy import deepcopy
-from tqdm import tqdm
 
-class MLNN:
-    """
-    MLNN - Multi Layer Neural Net (2+)
-    """
 
-    def __init__(self, extracted, data, targets, **kwargs):
+class RNN:
+
+    def __init__(self, data):
+        self.m = 100
+        self.k = 80
+        self.eta = 0.1
+        self.seq_length = 25
+        self.e = 0
+        self.eps = 1e-8
+
+        self.params , self.adagrad_params = self.InitParams()
+        self.grads = {}
+        self.data = data
+
+    def InitParams(self):
         """
-        Initialize Neural Network with data and parameters
-        """
-        var_defaults = {
-            "eta": 0.1,  # learning rate
-            "mean_weights": 0,  # mean of the weights
-            "var_weights": 0.01,  # variance of the weights
-            "lamda": 0,  # regularization parameter
-            "batch_size": 100,  # batch size
-            "epochs": 40,  # number of epochs
-            "h_param": 1e-6,  # parameter h for numerical grad check
-            "lr_max": 1e-1,  # default maximum for cyclical learning rate
-            "lr_min": 1e-5  # default minimum for cyclical learning rate
-        }
-
-        for var, default in var_defaults.items():
-            setattr(self, var, kwargs.get(var, default))
-        for k, v in extracted.items():
-            setattr(self, k, v)
-
-        self.hidden_sizes = [50, 50]
-        # self.hidden_sizes = [50, 30, 20, 20, 10, 10, 10, 10] # for testing 9 layer network
-        self.num_hidden = len(self.hidden_sizes)
-        self.initialization = ""
-        self.sig = 0.0001
-
-        self.d = data.shape[0]
-        self.n = data.shape[1]
-        self.K = targets.shape[0]
-        self.W, self.b = self.InitializeWeightsBias()
-        self.test_accuracy = 0
-        self.test_cost = 0
-
-
-
-
-    def InitializeWeightsBias(self):
-        """
-            Initialize weight matrix and bias
+            Initializes parameters for network
 
             Args:
                 None
 
             Returns:
-                b = bias
-                W = weights for k layers
+                params
         """
-        if self.initialization == "he":
-            W = [np.random.normal(0, (2 / self.hidden_sizes[0]), (self.hidden_sizes[0], self.d))]
-            for i in range(1, self.num_hidden):
-                W.append(np.random.normal(0, (2 / self.hidden_sizes[i - 1]), (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
-            W.append(np.random.normal(0, (2 / self.hidden_sizes[-1]), (self.K, self.hidden_sizes[-1])))
 
-        elif self.initialization == "sensetivity":
-            W = [np.random.normal(0, self.sig, (self.hidden_sizes[0], self.d))]
-            for i in range(1, self.num_hidden):
-                W.append(np.random.normal(0, self.sig, (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
-            W.append(np.random.normal(0, self.sig, (self.K, self.hidden_sizes[-1])))
+        params = {}
+        self.sig = 0.01
+        params['b'] = np.zeros((self.m, 1))  # bias vector
+        params['c'] = np.zeros((self.k, 1))  # another bias vector
+        params['u'] = np.random.rand(self.m, self.k) * self.sig  # weight matrix 1
+        params['w'] = np.random.rand(self.m, self.m) * self.sig  # weight matrix 2
+        params['v'] = np.random.rand(self.k, self.m) * self.sig  # weight matrix 3
+
+        adagrad_params = {}
+        adagrad_params['b'] = np.zeros_like(params['b'])
+        adagrad_params['c'] = np.zeros_like(params['c'])
+        adagrad_params['u'] = np.zeros_like(params['u'])
+        adagrad_params['w'] = np.zeros_like(params['w'])
+        adagrad_params['v'] = np.zeros_like(params['v'])
+
+        return params
+
+
+    def TrainModel(self, data, epochs=5, seq_length=100):
+        """
+            Trains model using the book data
+
+            Args:
+                data:   DataObject containing book information
+                epochs: Number of epochs to train for
+
+            Returns:
+                N/A
+        """
+        book_length = len(data.book_data)
+        smooth_loss = None
+        for i in range(epochs):
+            X, Y = self.GetMatrices(data)
+            p, a, h = self.Evaluate(X)
+            loss = self.ComputeLoss(p, Y)
+            smooth_loss = self.ComputeSmoothLoss(loss, smooth_loss)
+            self.ComputeGradients(X, Y, p, a, h)
+            self.AdaGrad()
+            self.report_progress(smooth_loss)
+
+            # Update the counter of where we are in the book (e).
+            # If we are at the end of the book, we start at the beginning again.
+            new_e = self.e + self.seq_length
+            if new_e > (book_length - self.seq_length - 1):
+                new_e = 0
+            self.e = new_e
+
+            if i % 1000 == 0:
+                print("update ", i, " // smooth loss: ", round(smooth_loss, 3))
+            if i % 10000 == 0:
+                one_hot = self.GenerateSequence(data, seq_length=seq_length)
+                print("-------------- generated text: -------------------------------")
+                print(data.onehot_to_string(one_hot))
+                print("--------------------------------------------------------------")
+
+    def GetMatrices(self, data):
+        """
+        get X (input) and Y (labels) matrices from the list of characters
+        """
+        X_chars = data.book_data[self.e: self.e + self.seq_length]
+        Y_chars = data.book_data[self.e + 1: self.e + self.seq_length + 1]
+        X = data.chars_to_onehot(X_chars)
+        Y = data.chars_to_onehot(Y_chars)
+        print(np.shape(X))
+        print(np.shape(Y))
+        return X, Y
+
+    def Evaluate(self, X):
+        """
+        evaluates a sequence of one-hot encoded characters X and outputs a
+        probability vector at each X_t representing the predicted probs
+        for the next character.
+        Used as forward pass of the backpropagation through time (bptt)
+        """
+
+        p = np.zeros((X.shape[1], self.k))
+        a = np.zeros((X.shape[1], self.m))
+        h = np.zeros((X.shape[1], self.m))
+
+        for t in range(X.shape[1]):
+            xt = X[:, t].reshape((self.k, 1))  # reshape from (k,) to (k,1)
+            a_curr = np.dot(self.params['w'], self.h_prev) + np.dot(self.params['u'], xt) + self.params['b']
+            h_curr = np.tanh(a_curr)
+            o_curr = np.dot(self.params['v'], h_curr) + self.params['c']
+            p_curr = self.SoftMax(o_curr)
+
+            a[t] = a_curr.reshape(self.m)  # reshape from (m,1) to (m,)
+            h[t] = h_curr.reshape(self.m)  # reshape from (m,1) to (m,)
+            p[t] = p_curr.reshape(self.k)  # reshape from (k,1) to (k,)
+
+            self.h_prev = h_curr
+
+        return p, a, h
+
+    def ComputeLoss(self, p, Y):
+        """
+        Compute the cross entropy loss between:
+        - a (seq_len x k) matrix of predicted probabilities
+        - a (k x seq _len) matrix of true one_hot encoded characters
+
+        """
+        loss = 0
+        for t in range(self.seq_length):
+            yt = Y[:, t]
+            loss += -np.log(np.dot(yt.T, p[t]))
+
+        return loss
+
+    def ComputeSmoothLoss(self, loss, smooth_loss):
+        if smooth_loss == None:
+            smooth_loss = loss
         else:
-            W = [np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[0], self.d))]
-            for i in range(1, self.num_hidden):  # add intermediary layers
-                W.append(np.random.normal(self.mean_weights, self.var_weights, (self.hidden_sizes[i], self.hidden_sizes[i - 1])))
-            W.append(np.random.normal(self.mean_weights, self.var_weights, (self.K, self.hidden_sizes[self.num_hidden - 1])))
+            smooth_loss = 0.999 * smooth_loss + 0.001 * loss
+        return smooth_loss
 
+    def report_progress(self, smooth_loss):
+        pass
 
-
-        b = [np.zeros((self.hidden_sizes[idx], 1)) for idx in range(self.num_hidden)] # add intermediary layers
-        b.append(np.zeros((self.K, 1))) # add last layer
-
-        return W, b
-
-    def SoftMax(self, X):
+    def SoftMax(self, Y_pred_lin):
         """
-            Standard definition of the softmax function
+        compute softmax activation, used in evaluating the prediction of the model
+        """
+        ones = np.ones(Y_pred_lin.shape[0])
+        return np.exp(Y_pred_lin) / np.dot(ones.T, np.exp(Y_pred_lin))
+
+
+    def AdaGrad(self):
+        """
+            Updates according to AdaGrad method
 
             Args:
-                X: data matrix
-
-            Returns:
-                Softmax transformed data
-
-        """
-        return np.exp(X) / np.sum(np.exp(X), axis=0)
-
-    def ReLu(self, x):
-        """Computes ReLU activation
-        Args:
-            x: input matrix
-        Returns:
-            x : relu matrix
-        """
-        return np.maximum(x, 0)
-
-    def LeakyReLu(self, x):
-        """Computes ReLU activation
-        Args:
-            x: input matrix
-        Returns:
-            x : relu matrix
-        """
-        return np.maximum(x, 0.01*x)
-
-    def EvaluateClassifier(self, X, W, b):
-        """
-            Output stable softmax probabilities of the classifier
-
-            Args:
-                X: data matrix
-                W: weights
-                b: bias
-
-            Returns:
-                s: s node in computational graph
-                p : a stable softmax matrix
-                h1 : intermediate ReLU values
-
-            """
-
-        h = [X]
-        s = []
-        for layer in range(len(W)):
-            s_idx = np.dot(W[layer], h[-1]) + b[layer]
-            s.append(s_idx)
-            h.append(self.ReLu(s_idx))
-        P = self.SoftMax(s[-1])
-        h.pop(0)
-
-        return s, h, P
-
-    def EvaluateClassifierBatchNorm(self, X, W, b, training=False):
-        """
-            Output stable softmax probabilities of the classifier
-
-            Args:
-                X: data matrix
-                W: weights
-                b: bias
-                epsilon:
-
-            Returns:
-                s: s node in computational graph
-                p : a stable softmax matrix
-                h1 : intermediate ReLU values
-                P:
-                scores:
-                batch_norm_scores:
-                batch_norm_relu_scores:
-                mus:
-                vars:
-
-
-        """
-        scores = []  # nonnormalized scores
-        batch_norm_scores = []
-        batch_norm_relu_scores = [X]
-        mus = []  # means
-        vars = []  # variabilitiess
-        score_layer = None
-
-
-        for layer in range(len(W)):
-            score_layer = np.dot(W[layer], batch_norm_relu_scores[-1]) + b[layer]
-            scores.append(score_layer)
-
-            # mean and variance calculations for each layer
-            mu = np.mean(score_layer, axis=1)
-            var = np.var(score_layer, axis=1)
-            mus.append(mu)
-            vars.append(var)
-
-            # batch normalization calculations
-            batch_norm = np.zeros(np.shape(score_layer))
-            a = np.diag(np.power((var + 1e-16), (-1 / 2))) # 1e-16 is to prevent zero division
-            for i in range(np.shape(score_layer)[1]):
-                batch_norm[:, i] = np.dot(a, (score_layer[:, i] - mu))
-
-            batch_norm_scores.append(batch_norm)
-            batch_norm_relu_scores.append(self.ReLu(batch_norm))
-
-        # final layer computation and pop X
-        P = self.SoftMax(score_layer)
-        batch_norm_relu_scores.pop(0)
-
-        return P, scores, batch_norm_scores, batch_norm_relu_scores, mus, vars
-
-
-
-    def ComputeAccuracy(self, X, y, W, b):
-        """
-           Computes accuracy of network's predictions
-
-            Args:
-                X: data matrix
-                y: ground truth labels
-                W: weights
-                b: bias
-
-            Returns:
-                Accuracy on provided sets
-        """
-
-
-        # calculate predictions
-        _, _, P = self.EvaluateClassifier(X, W, b)
-        preds = np.argmax(P, axis=0)
-
-        # calculate num of correct predictions
-        correct = np.count_nonzero((y - preds) == 0)
-
-        all = np.size(preds)
-        if all == 0:
-            raise (ZeroDivisionError("Zero Division Error!"))
-
-        return correct / all
-
-    def ComputeCost(self, X, Y, W, b, lamda):
-        """
-            Computes the cost function for the set of images using cross-entropy loss
-
-            Args:
-                X: data matrix
-                Y: one-hot encoding labels matrix
-                W: weights
-                b: bias
-                lamda: regularization term
-
-            Returns:
-                cost (float): the cross-entropy loss
-        """
-
-        # dimensions of data
-        d = np.shape(X)[0]
-        N = np.shape(X)[1]
-
-        # L2 regularization term adjusted for k-layers
-        regularization_term = np.sum([lamda * np.sum(np.power(W[layer], 2)) for layer in range(len(W))])
-
-        # cross-entropy loss term
-        _, _, P = self.EvaluateClassifier(X, W, b)
-        cross_entropy_loss = 0 - np.log(np.sum(np.prod((np.array(Y), P), axis=0), axis=0))
-
-        return (1 / N) * np.sum(cross_entropy_loss) + regularization_term
-
-    def ComputeGradients(self, X, Y, W, b, lamda):
-        """
-            Computes the gradients of the weight and bias parameters using analytical method
-
-            Args:
-                X: data batch matrix
-                Y: one-hot-encoding labels batch vector
-                P: evaluated classifier for the batch
-                W: weights
-                b: bias
-                lamda: regularization term
-
-            Returns:
-                gradient_W: gradient of the weight parameter
-                gradient_b: gradient of the bias parameter
-
-        """
-
-        gradient_W = [np.zeros(np.shape(W[i])) for i in range(len(W))]
-        gradient_b = [np.zeros(np.shape(b[i])) for i in range(len(W))]
-
-        # Forward Pass
-        _, H, P = self.EvaluateClassifier(X, W, b)
-
-        # Backward pass
-        G_batch = - (Y - P)
-
-        for layer in range(self.num_hidden, 0, -1):
-            #nasty code, but will refactor later
-            gradient_W[layer] = np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.transpose(H[layer - 1])) \
-                                + 2 * np.multiply(lamda, W[layer])
-            gradient_b[layer] = np.reshape(np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.ones(np.shape(X)[1])),
-                                       (gradient_b[layer].shape[0], 1))
-
-            G_batch = np.dot(np.transpose(W[layer]), G_batch)
-            H[layer - 1][H[layer - 1] <= 0] = 0
-            G_batch = np.multiply(G_batch, H[layer - 1] > 0)
-            # np.dot(np.diag(list(map(lambda num: num > 0, H[layer - 1]))), G_batch)
-
-        gradient_W[0] = np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.transpose(X)) + np.multiply(lamda, W[0])
-        gradient_b[0] = np.reshape(np.dot(np.multiply((1 / np.shape(X)[1]), G_batch), np.ones(np.shape(X)[1])), b[0].shape)
-
-        return gradient_W, gradient_b
-
-    def ComputeGradientsBatchNorm(self, X, Y, W, b, lamda):
-        """
-            Computes the gradients of the weight and bias parameters using analytical method and batch normalization
-
-            Args:
-                X: data batch matrix
-                Y: one-hot-encoding labels batch vector
-                P: evaluated classifier for the batch
-                W: weights
-                b: bias
-                lamda: regularization term
-
-            Returns:
-                gradient_W: gradient of the weight parameter
-                gradient_b: gradient of the bias parameter
-
-        """
-
-        gradient_W = [np.zeros(np.shape(W[i])) for i in range(len(W))]
-        gradient_b = [np.zeros(np.shape(b[i])) for i in range(len(W))]
-
-        # Forward Pass
-        P, scores, bn_scores, bn_relu_scores, mus, vars = self.EvaluateClassifierBatchNorm(X, W, b)
-
-
-        # Backward Pass
-        G_batch = -(Y - P)
-        layer = len(W) - 1
-
-        gradient_b.insert(0, (1 / np.shape(Y)[1]) * np.sum(G_batch, axis=1).reshape(-1, 1))
-        gradient_W.insert(0, (1 / np.shape(Y)[1]) * np.dot(G_batch, bn_relu_scores[layer-1].T) + 2 * lamda * W[layer])
-
-        G_batch = np.dot(np.transpose(W[layer]), G_batch)
-        G_batch = np.multiply(G_batch, list(map(lambda num: num > 0, bn_scores[layer - 1])))
-
-        for layer in range(len(W) - 2, -1, -1):
-
-            n = np.shape(G_batch)[1]
-            var_layer = vars[layer]
-            mu_layer = mus[layer]
-            score_layer = scores[layer]
-
-            v1_2 = np.diag(np.power((var_layer + 1e-16), (-1 / 2)))
-            v3_2 = np.diag(np.power((var_layer + 1e-16), (-3 / 2)))
-
-            grad_var = -(1 / 2) * sum([np.dot(G_batch[:, i], (np.dot(v3_2, np.diag(score_layer[:, i] - mu_layer))))
-                                       for i in range(n)])
-
-            grad_mu = (-1) * sum([np.dot(G_batch[:, i], v1_2) for i in range(n)])
-
-            G_temp = np.zeros(np.shape(G_batch))
-            for i in range(n):
-                G_temp[:, i] = np.dot(G_batch[:, i], v1_2) + (2 / n) * \
-                               np.dot(grad_var, np.diag(score_layer[:, i] - mu_layer)) + (1 / n) * grad_mu
-
-            if layer > 0:
-                prev_layer = bn_relu_scores[layer - 1]
-            else:
-                prev_layer = X
-            gradient_b.insert(0, (1 / n) * np.sum(G_temp, axis=1).reshape(-1, 1))
-            gradient_W.insert(0, (1 / n) * np.dot(G_temp, prev_layer.T) + 2 * lamda * W[layer])
-
-            if layer > 0:
-                G_batch = np.dot(np.transpose(W[layer]), G_batch)
-                G_batch = np.multiply(G_batch, list(map(lambda num: num > 0, bn_scores[layer - 1])))
-
-        return gradient_W, gradient_b, mus, vars
-
-
-    def ComputeGradsNum(self, X, Y, W, b, lamda, h):
-        """
-            Computes the gradients of the weight and bias parameters using numerical computation method
-
-            Args:
-                X: data batch matrix
-                Y: one-hot-encoding labels batch vector
-                P: evaluated classifier for the batch
-                W: weights
-                lamda: regularization term
-
-            Returns:
-                gradient_W: gradient of the weight parameter
-                gradient_b: gradient of the bias parameter
-        """
-
-        # initialize grads
-        gradient_W = [np.zeros(np.shape(W[layer])) for layer in range(len(W))]
-        gradient_b = [np.zeros(np.shape(b[layer])) for layer in range(len(W))]
-
-
-        cost = self.ComputeCost(X, Y, W, b, lamda)
-
-        for k in range(len(W)):
-            for i in range(len(b[k])):
-                temp = deepcopy(b)
-                temp[k][i] += h
-                cost_2 = self.ComputeCost(X, Y, W, temp, lamda)
-                gradient_b[k][i] = (cost_2 - cost) / h
-
-            for i in range(W[k].shape[0]):
-                for j in range(W[k].shape[1]):
-                    temp = deepcopy(W)
-                    temp[k][i, j] += h
-                    cost_2 = self.ComputeCost(X, Y, temp, b, lamda)
-                    gradient_W[k][i, j] = (cost_2 - cost) / h
-
-        return gradient_W, gradient_b
-
-    def CheckGradients(self, X, Y, lamda=0):
-        """
-            Checks analytically computed gradients against numerically computed to determine margin of error
-
-            Args:
-                X: data batch matrix
-                Y: one-hot-encoding labels batch vector
-                method: type of numerical gradient computation
+                None
 
             Returns:
                 None
         """
-        grad_w_numerical, grad_b_numerical = self.ComputeGradsNum(X, Y, self.W, self.b, lamda, 1e-5)
-        grad_w_analytical, grad_b_analytical = self.ComputeGradients(X, Y, self.W, self.b, lamda)
-        print("******* Performing Gradient Checks *******")
-        for layer in range(self.num_hidden+1):
-            grad_w_vec = grad_w_analytical[layer].flatten()
-            grad_w_num_vec = grad_w_numerical[layer].flatten()
-            grad_b_vec = grad_b_analytical[layer].flatten()
-            grad_b_num_vec = grad_b_numerical[layer].flatten()
-            print("* W gradients for layer", self.num_hidden - layer, " *")
-            print("mean relative error: ", np.mean(abs((grad_w_vec + self.h_param ** 2) /
-                                                       (grad_w_num_vec + self.h_param ** 2) - 1)))
-            print("* b gradients for layer", self.num_hidden - layer, " *")
-            print("mean relative error: ", np.mean(abs((grad_b_vec + self.h_param ** 2) /
-                                                       (grad_b_num_vec + self.h_param ** 2) - 1)))
-            x_w = np.arange(1, grad_w_vec.shape[0] + 1)
-            plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
-            plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label="fast", color='red')
-            plt.legend()
-            plt.title(("Gradient check of w", layer, ", batch size = " + str(X.shape[1])))
-            plt.show()
+        for key in self.params:
+            param = self.params[key]
+            grad = self.grads[key]
+            Gt = self.cum_g2[key] + np.square(grad)
+            eps = self.eps * np.ones(Gt.shape)
+            updated_param = param - self.eta / (np.sqrt(Gt + eps)) * grad
+            self.params[key] = updated_param
+            self.cum_g2[key] = Gt
 
-            x_b = np.arange(1, grad_b_analytical[layer].shape[0] + 1)
-            plt.bar(x_b, grad_b_vec, 0.35, label='Analytical gradient', color='blue')
-            plt.bar(x_b + 0.35, grad_b_num_vec, 0.35, label="fast", color='red')
-            plt.legend()
-            plt.title(("Gradient check of b", layer, ", batch size = " + str(X.shape[1])))
-            plt.show()
-
-
-    def MiniBatchGD(self, X, Y, y, GDparams, verbose=True):
+    def GenerateSequence(self, data):
         """
-            Trains OLNN using mini-batch gradient descent
+        generate a sequence of n one_hot encoded characters based on initial
+        hidden state h0 and input character x0
 
-            Args:
-                X: data matrix
-                Y: one-hot-encoding labels matrix
-                GDparams: hyperparameter object
-                    n_batch : batch size
-                    eta : learning rate
-                    n_epochs : number of training epochs
-                lamda: regularization term
-                verbose :
-        Returns:
-            training_accuracy (float): the accuracy on the training set
-            validation_accuracy   (float): the accuracy on the validation set
-            acc_test  (float): the accuracy on the testing set
+        Return: n*k matrix of n generated chars encoded as one-hot vectors
         """
-        # histories for top level training metrics
-        self.history_training_cost = []
-        self.history_validation_cost = []
-        self.history_training_accuracy = []
-        self.history_validation_accuracy = []
+        rand = np.random.randint(10000)
+        X_chars = data.book_data[rand: rand + 100]
+        X = data.chars_to_onehot(X_chars)
+        p, a, h = self.Evaluate(X)
+        char_seq = np.array([self.SelectChar(pt) for pt in p])
+        return char_seq
 
-        # batch norm metrics
-        self.moving_avg_mean = [np.zeros(self.hidden_sizes[l]) for l in range(self.num_hidden)]
-        self.moving_avg_var = [np.zeros(self.hidden_sizes[l]) for l in range(self.num_hidden)]
-        alpha = 0  # only for the first loop. then I change it to 0.99
+    def SelectChar(self, prob):
+        """
+        Use the conditional probabilities of a character
+        to generate a one_hot character based on a prob-weighted random choice
+        """
+        # draw an int in [0,k]
+        indices = list(range(self.k))
+        int_draw = int(np.random.choice(indices, 1, p=prob))
 
-        # history for cyclic training
-        self.history_update = []
+        # convert int to one-hot
+        one_hot_draw = np.zeros(self.k)
+        one_hot_draw[int_draw] = 1
+        return one_hot_draw
 
-        if GDparams.cyclic:
-            lr = GDparams.lr_min
-            t = 0
-        else:
-            lr = GDparams.lr
+    # def CheckGradients(self, data, h_param=1e-7):
+    #     X, Y = self.GetMatrices(data)
+    #     p, a, h = self.Evaluate(X)
+    #     self.ComputeGradients(X, Y, p, a, h)
+    #     for key in self.grads:
+    #         print("----------------------------------------------------------------")
+    #         print("comparing numerical and own gradient for: " + str(key))
+    #         print("----------------------------------------------------------------")
+    #         num_grad = self.num_gradient(key, X, Y, h_param)
+    #         own_grad = self.grads[key]
+    #         error = np.sum(self.grads[key] - num_grad)
+    #
+    #         grad_w_vec = own_grad.flatten()
+    #         grad_w_num_vec = num_grad.flatten()
+    #         x_w = np.arange(1, grad_w_vec.shape[0] + 1)
+    #         plt.figure(figsize=(9, 8), dpi=80, facecolor='w', edgecolor='k')
+    #         plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
+    #         plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label='numerical gradient', color='red')
+    #         plt.legend()
+    #         plt.title("Gradient check of: " + str(key))
+    #         plt.show()
+    #         rel_error = abs(grad_w_vec / grad_w_num_vec - 1)
+    #         print("mean relative error: ", np.mean(rel_error))
+    #
+    # def CheckGradients(self, X, Y, lamda=0):
+    #     """
+    #         Checks analytically computed gradients against numerically computed to determine margin of error
+    #
+    #         Args:
+    #             X: data batch matrix
+    #             Y: one-hot-encoding labels batch vector
+    #             method: type of numerical gradient computation
+    #
+    #         Returns:
+    #             None
+    #     """
+    #     grad_w_numerical, grad_b_numerical = self.ComputeGradsNum(X, Y, self.W, self.b, lamda, 1e-5)
+    #     grad_w_analytical, grad_b_analytical = self.ComputeGradients(X, Y, self.W, self.b, lamda)
+    #     print("******* Performing Gradient Checks *******")
+    #     for layer in range(self.num_hidden+1):
+    #         grad_w_vec = grad_w_analytical[layer].flatten()
+    #         grad_w_num_vec = grad_w_numerical[layer].flatten()
+    #         grad_b_vec = grad_b_analytical[layer].flatten()
+    #         grad_b_num_vec = grad_b_numerical[layer].flatten()
+    #         print("* W gradients for layer", self.num_hidden - layer, " *")
+    #         print("mean relative error: ", np.mean(abs((grad_w_vec + self.h_param ** 2) /
+    #                                                    (grad_w_num_vec + self.h_param ** 2) - 1)))
+    #         print("* b gradients for layer", self.num_hidden - layer, " *")
+    #         print("mean relative error: ", np.mean(abs((grad_b_vec + self.h_param ** 2) /
+    #                                                    (grad_b_num_vec + self.h_param ** 2) - 1)))
+    #         x_w = np.arange(1, grad_w_vec.shape[0] + 1)
+    #         plt.bar(x_w, grad_w_vec, 0.35, label='Analytical gradient', color='blue')
+    #         plt.bar(x_w + 0.35, grad_w_num_vec, 0.35, label="fast", color='red')
+    #         plt.legend()
+    #         plt.title(("Gradient check of w", layer, ", batch size = " + str(X.shape[1])))
+    #         plt.show()
+    #
+    #         x_b = np.arange(1, grad_b_analytical[layer].shape[0] + 1)
+    #         plt.bar(x_b, grad_b_vec, 0.35, label='Analytical gradient', color='blue')
+    #         plt.bar(x_b + 0.35, grad_b_num_vec, 0.35, label="fast", color='red')
+    #         plt.legend()
+    #         plt.title(("Gradient check of b", layer, ", batch size = " + str(X.shape[1])))
+    #         plt.show()
 
-        # rounded to avoid non-integer number of datapoints per step
-        num_batches = int(self.n / GDparams.n_batch)
-        update_step = 0
-        for epoch in range(GDparams.n_epochs):
-            for step in range(num_batches):
-                start_batch = step * GDparams.n_batch
-                end_batch = start_batch + GDparams.n_batch
-                X_batch = X[:, start_batch:end_batch]
-                Y_batch = Y[:, start_batch:end_batch]
-                if GDparams.batch_norm:
-                    gradient_W, gradient_b, gradient_mu, gradient_var = self.ComputeGradientsBatchNorm(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
-                    for layer in range(len(self.hidden_sizes)):
-                        self.moving_avg_mean[layer] = alpha * self.moving_avg_mean[layer] + (1 - alpha) * gradient_mu[layer]
-                        self.moving_avg_var[layer] = alpha * self.moving_avg_var[layer] + (1 - alpha) * gradient_var[layer]
-                    alpha = 0.99
-                else:
-                    gradient_W, gradient_b = self.ComputeGradients(X_batch, Y_batch, self.W, self.b, GDparams.lamda)
-                for layer in range(self.num_hidden):
-                    self.W[layer] = self.W[layer] - lr * gradient_W[layer]
-                    self.b[layer] = self.b[layer] - lr * gradient_b[layer]
-                update_step += 1
+    # def ComputeGradients(self, X, Y, p, a, h):
+    #     """
+    #         Computes the gradients of the weight and bias parameters using analytical method
+    #
+    #         Args:
+    #             X: data batch matrix
+    #             Y: one-hot-encoding labels batch vector
+    #             P: evaluated classifier for the batch
+    #             W: weights
+    #             b: bias
+    #             lamda: regularization term
+    #
+    #         Returns:
+    #             gradient_W: gradient of the weight parameter
+    #             gradient_b: gradient of the bias parameter
+    #
+    #     """
+    #     grad_o = np.zeros((self.seq_length, self.k))
+    #     for t in range(self.seq_length):
+    #         yt = Y[:, t].reshape(self.k, 1)
+    #         pt = p[t].reshape(self.k, 1)
+    #         grad_o[t] = (-(yt - pt)).reshape(self.k)
+    #
+    #     grad_v = np.zeros((self.k, self.m))
+    #     for t in range(self.seq_length):
+    #         grad_v += np.dot(grad_o[t].reshape(self.k, 1), h[t].reshape(1, self.m))
+    #
+    #     grad_a = np.zeros((self.seq_length, self.m))
+    #     grad_h = np.zeros((self.seq_length, self.m))
+    #
+    #     grad_h[-1] = np.dot(grad_o[-1], self.params['v'])
+    #     grad_h_last = grad_h[-1]
+    #     diag_part = np.diag(1 - np.tanh(a[-1]) ** 2)
+    #     grad_a[-1] = np.dot(grad_h_last, diag_part)
+    #
+    #     for t in reversed(range(self.seq_length - 1)):
+    #         grad_h[t] = np.dot(grad_o[t], self.params['v']) + np.dot(grad_a[t - 1], self.params['w'])
+    #         grad_h_part = grad_h[t]
+    #         diag_part = np.diag(1 - np.tanh(a[t]) ** 2)
+    #         grad_a[t] = np.dot(grad_h_part, diag_part)
+    #
+    #     grad_c = grad_o.sum(axis=0).reshape(self.k, 1)
+    #     grad_b = grad_a.sum(axis=0).reshape(self.m, 1)
+    #
+    #     grad_w = np.zeros((self.m, self.m))
+    #     for t in range(self.seq_length):
+    #         grad_w += np.outer(grad_a[t].reshape(self.m, 1), self.h_prev)
+    #
+    #     grad_u = np.zeros((self.m, self.k))
+    #     for t in range(self.seq_length):
+    #         xt = X[:, t].reshape(self.k, 1)
+    #         grad_u += np.dot(grad_a[t].reshape(self.m, 1), xt.T)
+    #
+    #     self.grads['u'] = grad_u
+    #     self.grads['v'] = grad_v
+    #     self.grads['w'] = grad_w
+    #     self.grads['b'] = grad_b
+    #     self.grads['c'] = grad_c
 
-                # implementing cyclic learning rate
-                if GDparams.cyclic:
-                    if t <= GDparams.n_s:
-                        lr = GDparams.lr_min + t / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
-                    elif t <= 2 * GDparams.n_s:
-                        lr = GDparams.lr_max - (t - GDparams.n_s) / GDparams.n_s * (GDparams.lr_max - GDparams.lr_min)
-                    t = (t + 1) % (2 * GDparams.n_s)
+    def compute_gradients_num(self, inputs, targets, hprev, h, num_comparisons=20):
+        """
+        Numerically computes the gradients of the weight and bias parameters
+        """
+        rnn_params = self.params
+        num_grads = {key: np.zeros_like(self.params[key]) for key in self.params.keys()}
 
+        for key in rnn_params:
+            for i in range(num_comparisons):
+                old_par = rnn_params[key].flat[i]  # store old parameter
+                rnn_params[key].flat[i] = old_par + h
+                _, l1, _ = self.compute_gradients(inputs, targets, hprev)
+                rnn_params[key].flat[i] = old_par - h
+                _, l2, _ = self.compute_gradients(inputs, targets, hprev)
+                rnn_params[key].flat[i] = old_par  # reset parameter to old value
+                num_grads[key].flat[i] = (l1 - l2) / (2 * h)
 
-            # shuffling training data
-            # X, y = shuffle(X, y, random_state=0)
+        return num_grads
 
-
-            if verbose:
-                training_cost = self.ComputeCost(X, Y, self.W, self.b, GDparams.lamda)
-                training_accuracy = self.ComputeAccuracy(X, y, self.W, self.b)
-                validation_cost = self.ComputeCost(self.X_validation, self.Y_validation,
-                                                   self.W, self.b, GDparams.lamda)
-                validation_accuracy = self.ComputeAccuracy(self.X_validation, self.y_validation,
-                                                           self.W, self.b)
-
-                if GDparams.cyclic :
-                    self.history_update.append(update_step)
-
-                self.history_training_cost.append(training_cost)
-                self.history_training_accuracy.append(training_accuracy)
-                self.history_validation_cost.append(validation_cost)
-                self.history_validation_accuracy.append(validation_accuracy)
-
-                print("Epoch ", epoch,
-                      " | Train accuracy: ", "{:.4f}".format(training_accuracy),
-                      " | Train cost: ", "{:.10f}".format(training_cost),
-                      " | Validation accuracy: ", "{:.4f}".format(validation_accuracy),
-                      " | Validation cost: ", "{:.10f}".format(validation_cost))
-
-        self.test_accuracy = self.ComputeAccuracy(self.X_test, self.y_test, self.W, self.b)
-        self.test_cost = self.ComputeCost(self.X_test, self.Y_test, self.W, self.b,
-                                          GDparams.lamda)
-        print("Test Accuracy: ", self.test_accuracy)
-        print("Test Cost: ", self.test_cost)
-        # self.ShowWeights(W, GDparams)
-
-    def ShowWeights(self, W, params):
-        """ Display the image for each label in W """
-        cifar_classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
-        fig, ax = plt.subplots(2, 5)
-        fig.suptitle(
-            "Weights learned for n_batch=100, n_epochs=40, eta=" + str(params.eta) + ", lamda=" + str(params.lamda))
-        for i in range(2):
-            for j in range(5):
-                img = W[i * 5 + j, :].reshape((32, 32, 3), order='F')
-                img = ((img - img.min()) / (img.max() - img.min()))
-                img = np.rot90(img, 3)
-                ax[i][j].imshow(img, interpolation="nearest")
-                ax[i][j].set_title(cifar_classes[i * 5 + j])
-                ax[i][j].axis('off')
-        plt.savefig("Plots/weight_visualization_eta=" + str(params.eta) + "_lamda=" + str(params.lamda) + ".png")
-        plt.show()
-
-
-class GDparams:
-    """
-    Class containing hyperparameters for MiniBatchGD
-
-    """
-
-    def __init__(self, n_batch, lr, lr_max, lr_min, n_s, cyclic, n_epochs, lamda, batch_norm):
-        # n_batch: Number of samples in each mini-batch.
-        self.n_batch = n_batch
-
-        # eta: Learning rate
-        self.lr = lr
-
-        # min/max for cyclical learning rate
-        self.lr_max = lr_max
-        self.lr_min = lr_min
-
-        self.n_s = n_s
-        self.cyclic = cyclic
-
-        # n_epochs: Maximum number of learning epochs.
-        self.n_epochs = n_epochs
-
-        # lamda: regularization term used for the gradient descent
-        self.lamda = lamda
-
-        self.batch_norm = batch_norm
-
+    def num_gradient(self, key, X, Y, h_param):
+        num_grad = np.zeros(self.grads[key].shape)
+        if key == 'b' or key == 'c':  # need to loop over 1 dim
+            for i in range(self.params[key].shape[0]):
+                self.params[key][i] -= h_param
+                p1, _, _ = self.Evaluate(X)
+                l1 = self.ComputeLoss(p1, Y)
+                self.params[key][i] += 2 * h_param
+                p2, _, _ = self.Evaluate(X)
+                l2 = self.ComputeLoss(p2, Y)
+                num_grad[i] = (l2 - l1) / (2 * h_param)
+                self.params[key][i] -= h_param
+        else:  # need to loop over 2 dimensions
+            for i in range(self.params[key].shape[0]):
+                for j in range(self.params[key].shape[1]):
+                    self.params[key][i][j] -= h_param
+                    p1, _, _ = self.Evaluate(X)
+                    l1 = self.ComputeLoss(p1, Y)
+                    self.params[key][i][j] += 2 * h_param
+                    p2, _, _ = self.Evaluate(X)
+                    l2 = self.ComputeLoss(p2, Y)
+                    num_grad[i][j] = (l2 - l1) / (2 * h_param)
+                    self.params[key][i][j] -= h_param
+        return num_grad
