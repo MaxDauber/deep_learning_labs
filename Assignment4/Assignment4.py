@@ -12,7 +12,7 @@ import statistics
 import unittest
 from math import pow
 import random
-import matplotlib
+import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from rnn import RNN
@@ -26,7 +26,7 @@ class DataObject:
 
         # unique characters in string of text
         self.book_chars = list(set(self.data_string))
-        self.vocab_len = len(self.book_chars)
+        self.vocab_length = len(self.book_chars)
 
 
         # dict mapping characters to ints
@@ -63,47 +63,59 @@ if __name__ == '__main__':
     e = 0 # Book position tracker
     n = 0 # Iteration number
     epoch = 0
-    num_epochs = 10
+    num_epochs = 2
     rnn = RNN(data)
-
+    loss_vals = []
 
     while epoch < num_epochs:
-        if n == 0 or e >= (len(rnn.book_data) - rnn.seq_length - 1):
+        if n == 0 or e >= (len(data.book_data) - rnn.seq_length - 1):
             if epoch != 0: print("Finished %i epochs." % epoch)
-            hprev = np.zeros((rnn.m, 1))
+            hidden_prev = np.zeros((rnn.m, 1))
             e = 0
             epoch += 1
 
-        inputs = [rnn.char_to_ind[char] for char in rnn.book_data[e:e + rnn.seq_length]]
-        targets = [rnn.char_to_ind[char] for char in rnn.book_data[e + 1:e + rnn.seq_length + 1]]
+        inputs = [data.char_to_ind[char] for char in data.book_data[e:e + rnn.seq_length]]
+        targets = [data.char_to_ind[char] for char in data.book_data[e + 1:e + rnn.seq_length + 1]]
 
-        gradients, loss, hprev = rnn.ComputeGradients(inputs, targets, hprev)
+        gradients, loss, hidden_prev = rnn.ComputeGrads(inputs, targets, hidden_prev)
 
-        # Compute smooth loss
-        if n == 0 and epoch == 1: smooth_loss = loss
+        # Compute Loss
+        if n == 0 and epoch == 1:
+            smooth_loss = loss
         smooth_loss = 0.999 * smooth_loss + 0.001 * loss
+        loss_vals.append(smooth_loss)
 
-        # Check gradients
-        if n == 0: rnn.check_gradients(inputs, targets, hprev)
+        # Check Gradients
+        if n == 0: rnn.CheckGrads(inputs, targets, hidden_prev)
 
-        # Print the loss
-        if n % 100 == 0: print('Iteration %d, smooth loss: %f' % (n, smooth_loss))
-
-        # Print synthesized text
-        if n % 500 == 0:
-            txt = rnn.synthesize_text(hprev, inputs[0], 200)
-            print('\nSynthesized text after %i iterations:\n %s\n' % (n, txt))
+        if n % 1000 == 0:
+            one_hot = rnn.SynthesizeText(hidden_prev, inputs[0], 200)
+            print("-------------- generated text after %i iterations: ------------"% n)
+            # print(data.onehot_to_string(one_hot))
+            print(one_hot)
+            print("--------------------------------------------------------------")
             print('Smooth loss: %f' % smooth_loss)
+            print(f"Progress: {'{:.2%}'.format(e/len(data.book_data))}")
 
         # AdaGrad Update
         for key in rnn.params:
             rnn.adagrad_params[key] += gradients[key] * gradients[key]
             rnn.params[key] -= rnn.eta / np.sqrt(rnn.adagrad_params[key] + np.finfo(float).eps) * gradients[key]
-
-        e += rnn.N
+        e += rnn.seq_length
         n += 1
-    # rnn.CheckGradients(data)
-    # rnn.TrainModel(data)
+
+    txt = rnn.SynthesizeText(hidden_prev, inputs[0], 1000)
+    print("-------------- generated text using best model ---------------")
+    print(txt)
+    print("--------------------------------------------------------------")
+
+    sns.lineplot(x="iteration", y="loss", data=loss_vals)
+    plt.show()
+
+
+
+
+
 
 
 
