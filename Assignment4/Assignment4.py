@@ -6,12 +6,6 @@ This is the main file of Assignment 4 for DD2424 Deep Learning
 This assignment implements a text-generating RNN based on the Harry Potter Books.
 """
 
-
-import pickle
-import statistics
-import unittest
-from math import pow
-import random
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
@@ -57,13 +51,13 @@ class DataObject:
 
 
 if __name__ == '__main__':
-    np.random.seed(0)
+    np.random.seed(42)
     data = DataObject("goblet_book.txt")
 
     e = 0 # Book position tracker
     n = 0 # Iteration number
     epoch = 0
-    num_epochs = 2
+    num_epochs = 20
     rnn = RNN(data)
     loss_vals = []
 
@@ -79,28 +73,27 @@ if __name__ == '__main__':
 
         gradients, loss, hidden_prev = rnn.ComputeGrads(inputs, targets, hidden_prev)
 
-        # Compute Loss
-        if n == 0 and epoch == 1:
+        if epoch == 1 and n == 0 :
             smooth_loss = loss
         smooth_loss = 0.999 * smooth_loss + 0.001 * loss
         loss_vals.append(smooth_loss)
 
-        # Check Gradients
-        if n == 0: rnn.CheckGrads(inputs, targets, hidden_prev)
+        if n == 0:
+            rnn.CheckGrads(inputs, targets, hidden_prev)
 
-        if n % 1000 == 0:
+        if n % 10000 == 0:
             one_hot = rnn.SynthesizeText(hidden_prev, inputs[0], 200)
             print("-------------- generated text after %i iterations: ------------"% n)
-            # print(data.onehot_to_string(one_hot))
             print(one_hot)
             print("--------------------------------------------------------------")
             print('Smooth loss: %f' % smooth_loss)
-            print(f"Progress: {'{:.2%}'.format(e/len(data.book_data))}")
+            # print(f"Progress: {'{:.2%}'.format(e/len(data.book_data))}")
 
         # AdaGrad Update
         for key in rnn.params:
             rnn.adagrad_params[key] += gradients[key] * gradients[key]
             rnn.params[key] -= rnn.eta / np.sqrt(rnn.adagrad_params[key] + np.finfo(float).eps) * gradients[key]
+
         e += rnn.seq_length
         n += 1
 
@@ -109,7 +102,11 @@ if __name__ == '__main__':
     print(txt)
     print("--------------------------------------------------------------")
 
-    sns.lineplot(x="iteration", y="loss", data=loss_vals)
+    fig = sns.lineplot(data=loss_vals, color='black')
+    plt.xlabel('iterations')
+    plt.ylabel('loss')
+    plt.title("loss over training run")
+    plt.savefig("loss_plot.png")
     plt.show()
 
 
