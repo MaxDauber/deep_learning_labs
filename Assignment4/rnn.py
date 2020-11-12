@@ -12,7 +12,7 @@ class RNN:
     def __init__(self, data):
         self.m = 100
         self.k = 80
-        self.eta = 0.1
+        self.eta = 0.01
         self.seq_length = 25
 
         self.params, self.adagrad_params = self.InitParams()
@@ -183,12 +183,12 @@ class RNN:
 
         return grads, loss, h
 
-    def ComputeGradsNum(self, inputs, targets, hprev, num_comparisons=20):
+    def ComputeGradsNum(self, inputs, targets, hprev):
         rnn_params = self.params
         num_grads = {key: np.zeros_like(self.params[key]) for key in self.params.keys()}
 
         for key in rnn_params:
-            for i in range(num_comparisons):
+            for i in range(20):
                 prev_param = rnn_params[key].flat[i]
                 rnn_params[key].flat[i] = prev_param + 1e-5
                 _, l1, _ = self.ComputeGrads(inputs, targets, hprev)

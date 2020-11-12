@@ -37,18 +37,6 @@ class DataObject:
     def int_to_char(self, int_list):
         return [self.ind_to_char[int] for int in int_list]
 
-    def onehot_to_string(self, one_hot_seq):
-        gen_ints = [np.where(r == 1)[0][0] for r in one_hot_seq]
-        gen_char_list = self.int_to_char(gen_ints)
-        return ''.join(gen_char_list)
-
-    def chars_to_onehot(self, char_list):
-        int_list = self.char_to_int(char_list)
-        one_hot = np.zeros((len(self.book_chars), len(int_list)))
-        for i, int_elem in enumerate(int_list):
-            one_hot[int_elem, i] = 1
-        return one_hot
-
 
 if __name__ == '__main__':
     np.random.seed(42)
