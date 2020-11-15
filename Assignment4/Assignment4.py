@@ -10,6 +10,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 from rnn import RNN
+from collections import OrderedDict
 
 
 class DataObject:
@@ -24,12 +25,12 @@ class DataObject:
 
 
         # dict mapping characters to ints
-        self.char_to_ind= dict()
+        self.char_to_ind= OrderedDict()
         for char in self.book_chars:
             self.char_to_ind[char] = len(self.char_to_ind)
 
         # dict mapping ints back to characters
-        self.ind_to_char = dict(zip(self.char_to_ind.values(), self.char_to_ind.keys()))
+        self.ind_to_char = OrderedDict(zip(self.char_to_ind.values(), self.char_to_ind.keys()))
 
     def char_to_int(self, char_list):
         return [self.char_to_ind[char] for char in char_list]
@@ -52,12 +53,16 @@ if __name__ == '__main__':
     while epoch < num_epochs:
         if n == 0 or e >= (len(data.book_data) - rnn.seq_length - 1):
             if epoch != 0: print("Finished %i epochs." % epoch)
-            hidden_prev = np.zeros((rnn.m, 1))
+            hidden_prev = np.zeros((rnn.m))
             e = 0
             epoch += 1
 
-        inputs = [data.char_to_ind[char] for char in data.book_data[e:e + rnn.seq_length]]
-        targets = [data.char_to_ind[char] for char in data.book_data[e + 1:e + rnn.seq_length + 1]]
+
+
+        input_indices = [data.char_to_ind[char] for char in data.book_data[e:e + rnn.seq_length]]
+        inputs = (np.eye(rnn.k)[input_indices]).T
+        target_indices = [data.char_to_ind[char] for char in data.book_data[e + 1:e + rnn.seq_length + 1]]
+        targets = (np.eye(rnn.k)[target_indices]).T
 
         gradients, loss, hidden_prev = rnn.ComputeGrads(inputs, targets, hidden_prev)
 
