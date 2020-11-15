@@ -20,7 +20,7 @@ class DataObject:
 
         # unique characters in string of text
         self.book_chars = list(set(self.data_string))
-        self.vocab_length = len(self.book_chars)
+        self.num_chars = len(self.book_chars)
 
 
         # dict mapping characters to ints
@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
         gradients, loss, hidden_prev = rnn.ComputeGrads(inputs, targets, hidden_prev)
 
-        if epoch == 1 and n == 0 :
+        if epoch == 1 and n == 0:
             smooth_loss = loss
         smooth_loss = 0.999 * smooth_loss + 0.001 * loss
         loss_vals.append(smooth_loss)
@@ -70,9 +70,9 @@ if __name__ == '__main__':
             rnn.CheckGrads(inputs, targets, hidden_prev)
 
         if n % 10000 == 0:
-            one_hot = rnn.SynthesizeText(hidden_prev, inputs[0], 200)
+            synthesized_text = rnn.Generate(hidden_prev, inputs[0], 200)
             print("-------------- generated text after %i iterations: ------------"% n)
-            print(one_hot)
+            print(synthesized_text)
             print("--------------------------------------------------------------")
             print('Smooth loss: %f' % smooth_loss)
             # print(f"Progress: {'{:.2%}'.format(e/len(data.book_data))}")
@@ -85,9 +85,9 @@ if __name__ == '__main__':
         e += rnn.seq_length
         n += 1
 
-    txt = rnn.SynthesizeText(hidden_prev, inputs[0], 1000)
+    synthesized_text = rnn.Generate(hidden_prev, inputs[0], 1000)
     print("-------------- generated text using best model ---------------")
-    print(txt)
+    print(synthesized_text)
     print("--------------------------------------------------------------")
 
     fig = sns.lineplot(data=loss_vals, color='black')

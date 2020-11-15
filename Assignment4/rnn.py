@@ -3,9 +3,6 @@
 # author: Max Dauber  dauber@kth.se
 
 import numpy as np
-import matplotlib.pyplot as plt
-from copy import deepcopy
-
 
 class RNN:
 
@@ -19,16 +16,6 @@ class RNN:
         self.data = data
 
     def InitParams(self):
-        """
-            Initializes parameters for network
-
-            Args:
-                None
-
-            Returns:
-                params
-        """
-
         params = {}
         self.sig = 0.01
         params['b'] = np.zeros((self.m, 1))  # bias vector
@@ -49,109 +36,46 @@ class RNN:
 
 
     def SoftMax(self, Y):
-        """
-            Standard definition of the softmax function
-
-            Args:
-                Y: data matrix
-
-            Returns:
-                Softmax transformed data
-
-        """
         ones = np.ones(Y.shape[0])
         return np.exp(Y) / np.dot(ones.T, np.exp(Y))
 
     def Evaluate(self, h_curr, x_curr):
-        """
-        Output stable softmax probabilities of the classifier
-            
-        Args:
-            h_curr: hidden state
-            x_curr: sequence of input vectors
-
-        Returns:
-            a: linear transformation of w and u, bias b
-            h: intermediate tanh values
-            o: linear transformation of v,  bias c
-            p: a stable softmax matrix
-
-        """
-
         a = np.dot(self.params['w'], h_curr) + np.dot(self.params['u'], x_curr) + self.params['b']
         h = np.tanh(a)
         o = np.dot(self.params['v'], h) + self.params['c']
         p = self.SoftMax(o)
-
         return a, h, o, p
 
-    def SynthesizeText(self, hidden_prev, input, n):
-        """
-        Synthesize text based on the hidden state sequence
-        """
-        xnext = np.zeros((self.data.vocab_length, 1))
-        xnext[input] = 1
+    def Generate(self, hidden_prev, input, n):
+        char_next = np.zeros((self.data.num_chars, 1))
+        char_next[input] = 1
         txt = ''
 
         for t in range(n):
-            _, h, _, p = self.Evaluate(hidden_prev, xnext)
+            _, h, _, p = self.Evaluate(hidden_prev, char_next)
 
-            input = np.random.choice(range(self.data.vocab_length), p=p.flat)
-            xnext = np.zeros((self.data.vocab_length, 1))
-            xnext[input] = 1
+            input = np.random.choice(range(self.data.num_chars), p=p.flat)
+            char_next = np.zeros((self.data.num_chars, 1))
+            char_next[input] = 1
             txt += self.data.ind_to_char[input]
 
         return txt
 
 
-    def CheckGrads(self, inputs, targets, hidden_prev):
-        """
-        Checks analytically computed gradients against numerically computed to determine margin of error
-        """
-        print("Gradient checks:")
-
-        analytical_gradients, _, _ = self.ComputeGrads(inputs, targets, hidden_prev)
-        numerical_gradients = self.ComputeGradsNum(inputs, targets, hidden_prev)
-
-        comparisons = 100
-        for grad in analytical_gradients:
-            numerator = abs(analytical_gradients[grad].flat[:comparisons] -
-                      numerical_gradients[grad].flat[:comparisons])
-            denominator = np.asarray([max(abs(a), abs(b)) + 1e-10 for a, b in
-                                zip(analytical_gradients[grad].flat[:comparisons],
-                                    numerical_gradients[grad].flat[:comparisons])
-                                ])
-            max_rel_error = max(numerator / denominator)
-
-            print("The maximum relative error for the %s gradient is: %e." %
-                  (grad, max_rel_error))
-        print()
-
-    def ComputeGrads(self, inputs, targets, hprev):
-        """ Analytically computes the gradients of the weight and bias parameters
-        Args:
-            inputs: indices of the chars of the input sequence
-            targets     (list): indices of the chars of the target sequence
-            hprev (np.ndarray): previous learnt hidden state sequence
-        Returns:
-            grads (dict): the updated analytical gradients dU, dW, dV, db and dc
-            loss (float): the current loss
-            h (np.ndarray): newly learnt hidden state sequence
-        """
-
+    def ComputeGrads(self, inputs, targets, hidden_prev):
         x_, a_, h_, o_, p_ = {}, {}, {}, {}, {}
         n = len(inputs)
         loss = 0
-        h_[-1] = np.copy(hprev)
+        h_[-1] = np.copy(hidden_prev)
 
         # Forward pass
         for t in range(n):
-            x_[t] = np.zeros((self.data.vocab_length, 1))
+            x_[t] = np.zeros((self.data.num_chars, 1))
             x_[t][inputs[t]] = 1
 
             a_[t], h_[t], o_[t], p_[t] = self.Evaluate(h_[t - 1], x_[t])
 
-            loss += -np.log(p_[t][targets[t]][0])  # update the loss
+            loss += -np.log(p_[t][targets[t]][0])
 
         grads = {key: np.zeros_like(self.params[key]) for key in self.params.keys()}
         o = np.zeros_like(p_[0])
@@ -183,18 +107,35 @@ class RNN:
 
         return grads, loss, h
 
+
+    def CheckGrads(self, inputs, targets, hidden_prev):
+        print("Running Gradient Checks")
+        analytical_gradients, _, _ = self.ComputeGrads(inputs, targets, hidden_prev)
+        numerical_gradients = self.ComputeGradsNum(inputs, targets, hidden_prev)
+
+        comparisons = 100
+        for grad in analytical_gradients:
+            numerator = abs(analytical_gradients[grad].flat[:comparisons] -
+                      numerical_gradients[grad].flat[:comparisons])
+            denominator = np.asarray([max(abs(a), abs(b)) + 1e-10 for a, b in
+                                zip(analytical_gradients[grad].flat[:comparisons],
+                                    numerical_gradients[grad].flat[:comparisons])
+                                ])
+            max_rel_error = max(numerator / denominator)
+
+            print("The max relative error for the %s gradient is: %e." %
+                  (grad, max_rel_error))
+
     def ComputeGradsNum(self, inputs, targets, hprev):
-        rnn_params = self.params
-        num_grads = {key: np.zeros_like(self.params[key]) for key in self.params.keys()}
-
-        for key in rnn_params:
+        params = self.params
+        numerical_grads = {key: np.zeros_like(self.params[key]) for key in self.params.keys()}
+        for key in params:
             for i in range(20):
-                prev_param = rnn_params[key].flat[i]
-                rnn_params[key].flat[i] = prev_param + 1e-5
-                _, l1, _ = self.ComputeGrads(inputs, targets, hprev)
-                rnn_params[key].flat[i] = prev_param - 1e-5
-                _, l2, _ = self.ComputeGrads(inputs, targets, hprev)
-                rnn_params[key].flat[i] = prev_param
-                num_grads[key].flat[i] = (l1 - l2) / (2 * 1e-5)
-
-        return num_grads
+                prev_param = params[key].flat[i]
+                params[key].flat[i] = prev_param + 1e-5
+                _, loss1, _ = self.ComputeGrads(inputs, targets, hprev)
+                params[key].flat[i] = prev_param - 1e-5
+                _, loss2, _ = self.ComputeGrads(inputs, targets, hprev)
+                params[key].flat[i] = prev_param
+                numerical_grads[key].flat[i] = (loss1 - loss2) / (2 * 1e-5)
+        return numerical_grads
