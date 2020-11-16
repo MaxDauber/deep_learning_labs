@@ -386,7 +386,7 @@ class MLNN:
                 gradient_b: gradient of the bias parameter
         """
 
-        # initialize grads
+        # initialize gradients
         gradient_W = [np.zeros(np.shape(W[layer])) for layer in range(len(W))]
         gradient_b = [np.zeros(np.shape(b[layer])) for layer in range(len(W))]
 
