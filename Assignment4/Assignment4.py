@@ -53,16 +53,14 @@ if __name__ == '__main__':
     while epoch < num_epochs:
         if n == 0 or e >= (len(data.book_data) - rnn.seq_length - 1):
             if epoch != 0: print("Finished %i epochs." % epoch)
-            hidden_prev = np.zeros((rnn.m))
+            hidden_prev = np.zeros((rnn.m, 1))
             e = 0
             epoch += 1
 
-
-
-        input_indices = [data.char_to_ind[char] for char in data.book_data[e:e + rnn.seq_length]]
-        inputs = (np.eye(rnn.k)[input_indices]).T
-        target_indices = [data.char_to_ind[char] for char in data.book_data[e + 1:e + rnn.seq_length + 1]]
-        targets = (np.eye(rnn.k)[target_indices]).T
+        inputs = [data.char_to_ind[char] for char in data.book_data[e:e + rnn.seq_length]]
+        # inputs = (np.eye(rnn.k)[input_indices]).T
+        targets = [data.char_to_ind[char] for char in data.book_data[e + 1:e + rnn.seq_length + 1]]
+        # targets = (np.eye(rnn.k)[target_indices]).T
 
         gradients, loss, hidden_prev = rnn.ComputeGrads(inputs, targets, hidden_prev)
 
@@ -80,7 +78,6 @@ if __name__ == '__main__':
             print(synthesized_text)
             print("--------------------------------------------------------------")
             print('Smooth loss: %f' % smooth_loss)
-            # print(f"Progress: {'{:.2%}'.format(e/len(data.book_data))}")
 
         # AdaGrad Update
         for key in rnn.params:
